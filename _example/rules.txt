@@ -1,0 +1,6 @@
+patch_embed.proj - embeddings.patch_embeddings.projection
+patch_embed.norm - embeddings.norm
+
+norm1 - layernorm_before
+attn - attention
+fc1 - intermediate
