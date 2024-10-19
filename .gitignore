@@ -1,0 +1,6 @@
+*.pth
+tb-logger
+test_trial
+data
+_resnet
+__pycache__
