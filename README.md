@@ -16,6 +16,7 @@ Seoul National University's robot vision class 2024 fall team project
 2. git stash (지금까지 작업한거 잠깐 임시 저장)
 3. git pull origin main
 4. git stash pop (임시 저장한 변경사항들 다시 불러오기)
+    > 왜 stash 를 하냐면, main 에 변경 사항이 있는데 그냥 add commit push 하면 충돌이 무조건 남. push 하기 전에는 반드시 main 과 내가 작업하고 있는 브랜치를 항상 최신으로 맞춰주기
 5. git add .
 6. git commit -m "[실험한 내용 적기]"
 7. git push
