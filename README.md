@@ -37,7 +37,7 @@ Seoul National University's robot vision class 2024 fall team project
 
 ## 1.2. Download the dataset
 - cityscapes
-  1. [cityscapes 링크] 들어가서 회원가입하고, gtFine_trainvaltest.zip <- 이거 다운로드
+  1. [cityscapes 링크] 들어가서 회원가입하고, leftImg8bit_trainvaltest.zip (11GB : 사진), gtFine_trainvaltest.zip (241MB : annotation) 다운로드
   2. unzip gtFine_trainvaltest.zip <- OS (윈도우, 우분투 등)에 따라 다를 수 있는데 해보기
   3. data/ 에 옮기기
 - GTA5

@@ -43,6 +43,7 @@ image_transforms = transforms.Compose([
     transforms.Resize((512,1024)),
     transforms.ToTensor(),
     transforms.Normalize(mean=(0.4422, 0.4379, 0.4246), std=(0.2572, 0.2516, 0.2467)),
+    transforms.ColorJitter()
 
     # Add normalization if needed
 ])
