@@ -17,10 +17,6 @@ image_transforms = transforms.Compose([
 
     # Add normalization if needed
 ])
-
-# Mean: tensor([0.4422, 0.4379, 0.4246])
-# Std: tensor([0.2572, 0.2516, 0.2467])
-
 # For the mask, we only need to resize and convert it to tensor
 mask_transforms = transforms.Compose([
     transforms.RandomResizedCrop(size =(1280, 720), ratio=(0.5, 2.0),  interpolation=transforms.InterpolationMode.NEAREST),
@@ -63,28 +59,17 @@ class SegmentationDataset(Dataset):
         # Load image
         img_path = os.path.join(self.images_dir, self.images[idx])
         image = Image.open(img_path).convert('RGB')
-        # image = np.asarray(image)
-        # image = np.transpose(image, (2,0,1))
-        # image = cv2.imread(img_path)
-        # image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB )
 
 
         # Load mask
         mask_path = os.path.join(self.masks_dir, self.masks[idx])
         mask = Image.open(mask_path).convert('P')
-        # mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
 
         # Map mask indices to class indices
         mask_class = map_mask_indices(mask, self.palette_index_to_class)
 
         # Convert to tensor
         mask_class = torch.from_numpy(mask_class).unsqueeze(0)
-
-        # Apply transformations
-        # if self.transform:
-        #     transformed = self.transform(image=image, mask=mask_class)
-        #     image = transformed["image"]
-        #     mask = transformed["mask"]
         
         if self.transform:
             transformed_image = self.transform(image)

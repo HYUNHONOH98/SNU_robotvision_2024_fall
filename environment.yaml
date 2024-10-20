@@ -366,7 +366,6 @@ dependencies:
   - tokenizers=0.19.1=py38hff361bb_0
   - toolz=1.0.0=pyhd8ed1ab_0
   - torchaudio=2.4.0=py38_cpu
-  - torchtriton=2.3.0=cuda123py38hdb19cb5_0
   - torchvision=0.19.0=py38_cpu
   - tornado=6.4.1=py38h5eee18b_0
   - traitlets=5.14.3=py38h06a4308_0
@@ -394,8 +393,11 @@ dependencies:
       - addict==2.4.0
       - aliyun-python-sdk-core==2.15.2
       - aliyun-python-sdk-kms==2.16.5
+      - appdirs==1.4.4
       - black==24.8.0
+      - cityscapesscripts==2.2.4
       - colorama==0.4.6
+      - coloredlogs==15.0.1
       - contourpy==1.1.1
       - crcmod==1.7
       - cryptography==43.0.1
@@ -406,10 +408,13 @@ dependencies:
       - fonttools==4.54.1
       - ftfy==6.2.3
       - fvcore==0.1.6
+      - humanfriendly==10.0
       - importlib-metadata==8.5.0
       - importlib-resources==6.4.5
       - jmespath==0.10.0
       - kiwisolver==1.4.7
+      - kornia==0.7.3
+      - kornia-rs==0.1.5
       - markdown==3.7
       - markdown-it-py==3.0.0
       - matplotlib==3.7.5
@@ -443,6 +448,7 @@ dependencies:
       - pycryptodome==3.21.0
       - pygments==2.18.0
       - pyparsing==3.1.4
+      - pyquaternion==0.9.9
       - pytz==2023.4
       - requests==2.28.2
       - rich==13.4.2
@@ -452,6 +458,8 @@ dependencies:
       - tomli==2.0.2
       - torch==2.4.0+cu118
       - tqdm==4.65.2
+      - triton==3.0.0
+      - typing==3.7.4.3
       - tzdata==2024.2
       - urllib3==1.26.20
       - wcwidth==0.2.13

@@ -36,14 +36,17 @@ Seoul National University's robot vision class 2024 fall team project
 - data/ 폴더를 만들어주기. (데이터셋 다운받을 때 저장할 폴더)
 
 ## 1.2. Download the dataset
-- cityscapes
+- **cityscapes**
   1. [cityscapes 링크] 들어가서 회원가입하고, leftImg8bit_trainvaltest.zip (11GB : 사진), gtFine_trainvaltest.zip (241MB : annotation) 다운로드
   2. unzip gtFine_trainvaltest.zip <- OS (윈도우, 우분투 등)에 따라 다를 수 있는데 해보기
   3. data/ 에 옮기기
-- GTA5
+  4. `python utils/dataset/cityscapes_dataset_converter.py [cityscapes_dataset 경로] --nproc 8` 실행
+- **GTA5**
   1. [GTA5 링크] 들어가서 저기 써있는대로 다운받으면 됨. or [GTA5 링크2] 들어가서 직접 눌러서 다운받기
   2. unzip
   3. data/ 에 옮기기
+- 확인
+  - _examples/_example_dataset.ipynb 들어가서 셀들 실행해보면 잘 다운됐는지 확인 가능.
 
 ## 1.3. To train
 Put your network name on it.
