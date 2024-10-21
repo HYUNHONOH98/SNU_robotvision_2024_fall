@@ -33,7 +33,7 @@ Seoul National University's robot vision class 2024 fall team project
 
 - conda env 가 있는 경우 (python 3.8 아니면 재고 필요)
 
-`conda env export > environment.yaml`
+`conda env create --file environment.yaml`
 
 - data/ 폴더를 만들어주기. (데이터셋 다운받을 때 저장할 폴더)
 
