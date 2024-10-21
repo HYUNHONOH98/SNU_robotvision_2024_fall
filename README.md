@@ -50,6 +50,11 @@ Seoul National University's robot vision class 2024 fall team project
 - 확인
   - _examples/_example_dataset.ipynb 들어가서 셀들 실행해보면 잘 다운됐는지 확인 가능.
 
+## 1.2. Download the pretrained backbone
+- **Resnet-50**
+  - `wget https://download.pytorch.org/models/resnet50-19c8e357.pth`
+  - model/pretrained 에 pth 파일 옮기기.
+
 ## 1.3. To train
 Put your network name on it.
 

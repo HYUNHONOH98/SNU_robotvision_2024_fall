@@ -7,10 +7,7 @@ from ignite.metrics import Accuracy, Loss, mIoU, ConfusionMatrix
 from ignite.handlers import ModelCheckpoint
 from ignite.contrib.handlers import TensorboardLogger, global_step_from_engine
 from dataset.gta_loader import SegmentationDataset
-from torch.optim.lr_scheduler import PolynomialLR
-from ignite.handlers.param_scheduler import LRScheduler
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
+from dataset.cityscapes_loader import CityscapesDataset
 from torchvision import transforms
 import cv2
 import numpy as np
@@ -47,12 +44,22 @@ mask_transforms = transforms.Compose([
     transforms.Resize((512,1024), interpolation=transforms.InterpolationMode.NEAREST)
 ])
 
-train_dataset = SegmentationDataset(
-    images_dir="/home/hyunho/sfda/data/gta5_dataset/images",
-    masks_dir="/home/hyunho/sfda/data/gta5_dataset/labels",
+# GTA5 dataset
+# train_dataset = SegmentationDataset(
+#     images_dir="/home/hyunho/sfda/data/gta5_dataset/images",
+#     masks_dir="/home/hyunho/sfda/data/gta5_dataset/labels",
+#     transform=image_transforms,
+#     target_transform=mask_transforms,
+# )
+# Cityscapes dataset
+train_dataset = CityscapesDataset(
+    images_dir="/home/hyunho/sfda/data/cityscapes_dataset/leftImg8bit/train",
+    masks_dir="/home/hyunho/sfda/data/cityscapes_dataset/gtFine/train",
     transform=image_transforms,
     target_transform=mask_transforms,
+    debug=True
 )
+
 train_loader = DataLoader(
     train_dataset, 
     batch_size=training_config["batch_size"], 
@@ -98,7 +105,7 @@ with torch.no_grad():
     plt.title('Input Image')
     plt.axis('off')
 
-    plt.savefig(f"/home/hyunho/sfda/_example/image/{iter}.png")
+    plt.savefig(f"/home/hyunho/sfda/_example/image/{iter}_city.png")
     
 
     import pdb; pdb.set_trace()
