@@ -25,6 +25,8 @@ Seoul National University's robot vision class 2024 fall team project
 
 # 1. How to use
 ## 1.1. Setup
+- conda 설치가 안돼있는 경우 : 자기 상황에 맞게 [해당 문서] 참고해서 miniconda 다운로드
+
 - conda env 가 없는 경우
 
 `conda create -n "환경 이름" python=3.8`
@@ -66,3 +68,5 @@ There is no additional validation set on source model training.
 [GTA5 링크]: https://github.com/sarrrrry/PyTorchDL_GTA5/
 
 [GTA5 링크2]: https://download.visinf.tu-darmstadt.de/data/from_games/
+
+[해당 문서]: https://docs.anaconda.com/miniconda/
