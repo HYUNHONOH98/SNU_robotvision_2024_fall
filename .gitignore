@@ -5,3 +5,4 @@ data
 _resnet
 __pycache__
 image/
+exp/*
