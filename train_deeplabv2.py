@@ -21,7 +21,7 @@ import numpy as np
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 training_config = {
-    "exp_name": "deeplabv2",
+    "exp_name": "exp/deeplabv2",
     "max_iter" : 40000,
     "batch_size" : 4,
     "initial_lr" : 2.5e-4,

@@ -5,7 +5,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -201,7 +201,8 @@ def DeeplabMulti(num_classes=19, pretrained=True, backbone="resnet50"):
     model = ResNetMulti(Bottleneck, layers, num_classes)
 
     if pretrained:
-        restore_from = './pretrained/resnet50-19c8e357.pth'
+        cwd = os.getcwd()
+        restore_from = f'{cwd}/model/pretrained/resnet50-19c8e357.pth'
         saved_state_dict = torch.load(restore_from, weights_only=True)
         model.load_state_dict(saved_state_dict, strict=False)
     return model
