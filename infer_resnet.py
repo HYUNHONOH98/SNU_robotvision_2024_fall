@@ -13,7 +13,6 @@ import cv2
 import numpy as np
 
 import torch, gc
-from model.modeling import deeplabv3_resnet50
 gc.collect()
 torch.cuda.empty_cache()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -30,9 +29,16 @@ training_config = {
     "lr_scheduler" : "polynomial"
 }
 
+from model.modeling import deeplabv3_resnet50
 model = deeplabv3_resnet50(num_classes=19,
                    output_stride=4,
                    pretrained_backbone=True).to(device)
+
+from model.deeplabv2 import DeeplabMulti
+model = DeeplabMulti(num_classes=19, pretrained=False)
+model.load_state_dict(
+  torch.load("/home/hyunho/sfda/exp/deeplabv2_1022/best_model_3_accuracy=0.8210.pt", map_location=device, weights_only=True)
+)
 
 
 image_transforms = transforms.Compose([
@@ -68,8 +74,8 @@ train_loader = DataLoader(
     num_workers=16
 )
 
-state_dict = torch.load("/home/hyunho/sfda/_resnet/best_model_6_accuracy=0.8114.pt", map_location=device, weights_only=True)
-model.load_state_dict(state_dict)
+# state_dict = torch.load("/home/hyunho/sfda/_resnet/best_model_6_accuracy=0.8114.pt", map_location=device, weights_only=True)
+# model.load_state_dict(state_dict)
 model.eval()
 import matplotlib.pyplot as plt
 
@@ -105,7 +111,7 @@ with torch.no_grad():
     plt.title('Input Image')
     plt.axis('off')
 
-    plt.savefig(f"/home/hyunho/sfda/_example/image/{iter}_city.png")
+    plt.savefig(f"/home/hyunho/sfda/_example/image/{iter}_city_deeplabv2.png")
     
 
     import pdb; pdb.set_trace()
