@@ -15,15 +15,15 @@ from torchvision import transforms
 import cv2
 import numpy as np
 
-# import torch, gc
-# gc.collect()
-# torch.cuda.empty_cache()
+import torch, gc
+gc.collect()
+torch.cuda.empty_cache()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 training_config = {
-    "exp_name": "exp/deeplabv2",
+    "exp_name": "exp/deeplabv2_1022",
     "max_iter" : 40000,
-    "batch_size" : 4,
+    "batch_size" : 2,
     "initial_lr" : 2.5e-4,
     "optimizer" : {
         "name" : "SGD",
@@ -39,7 +39,7 @@ model = DeeplabMulti(num_classes=19, pretrained=True).to(device)
 
 image_transforms = transforms.Compose([
     # transforms.RandomResizedCrop(size =(1280, 720), ratio=(0.5, 2.0)),
-    transforms.Resize((512,1024)),
+    transforms.Resize((720,1280)),
     transforms.ToTensor(),
     transforms.Normalize(mean=(0.4422, 0.4379, 0.4246), std=(0.2572, 0.2516, 0.2467)),
     transforms.ColorJitter()
@@ -53,7 +53,7 @@ image_transforms = transforms.Compose([
 # For the mask, we only need to resize and convert it to tensor
 mask_transforms = transforms.Compose([
     # transforms.RandomResizedCrop(size =(1280, 720), ratio=(0.5, 2.0),  interpolation=transforms.InterpolationMode.NEAREST),
-    transforms.Resize((512,1024), interpolation=transforms.InterpolationMode.NEAREST),
+    transforms.Resize((720,1280), interpolation=transforms.InterpolationMode.NEAREST),
     # transforms.Lambda(lambda x: torch.from_numpy(np.array(x, dtype=np.int64))),
     # transforms.ToTensor(),
 ])
@@ -95,7 +95,7 @@ val_metrics = {
 
 train_evaluator = create_supervised_evaluator(model, metrics=val_metrics, device=device)
 
-log_interval = 10
+log_interval = 100
 
 @trainer.on(Events.ITERATION_COMPLETED(every=log_interval))
 def log_training_loss(engine):
