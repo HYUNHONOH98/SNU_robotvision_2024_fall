@@ -99,5 +99,8 @@ def rotate_image(image):
     
     # 각도를 레이블로 사용
     label = angles.index(angle)
+    label_tensor = torch.zeros(4)
+    label_tensor[label] = 1
 
-    return rotated_image, label
+
+    return rotated_image, label_tensor
