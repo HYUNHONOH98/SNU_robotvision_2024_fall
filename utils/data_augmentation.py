@@ -83,3 +83,21 @@ def gaussian_blur(blur, data=None):
                         kernel_size=kernel_size, sigma=(sigma, sigma)))
                 data = seq(data)
     return data
+
+
+import torch
+import random
+import torchvision.transforms.functional as TF
+
+def rotate_image(image):
+    # 랜덤으로 회전 각도 선택
+    angles = [0, 90, 180, 270]
+    angle = random.choice(angles)
+    
+    # 이미지 회전
+    rotated_image = TF.rotate(image, angle)
+    
+    # 각도를 레이블로 사용
+    label = angles.index(angle)
+
+    return rotated_image, label
