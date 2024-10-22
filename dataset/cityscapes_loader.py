@@ -8,6 +8,7 @@ import cv2
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from pathlib import Path
+from utils.data_augmentation import rotate_image
 
 def suffix_file_search(path, suffix):
     dir = Path(path)
@@ -63,6 +64,40 @@ class CityscapesDataset(Dataset):
             mask = self.target_transform(mask)
 
         return transformed_image, mask.squeeze(0)
-    
 
 
+class CityscapesDataset2(Dataset):
+    # def __init__(self, images_dir, masks_dir, transform: A.Compose =None, debug=False):
+    def __init__(self, images_dir, transform=None, debug=False,
+                 image_suffix="_leftImg8bit.png"):
+        self.images_dir = images_dir
+        self.transform = transform
+        self.debug = debug
+        self.cityscapes_palette = [[128, 64, 128], [244, 35, 232], [70, 70, 70], [102, 102, 156],
+                                   [190, 153, 153], [153, 153, 153], [250, 170,
+                                                                      30], [220, 220, 0],
+                                   [107, 142, 35], [152, 251, 152], [70, 130, 180],
+                                   [220, 20, 60], [255, 0, 0], [0, 0, 142], [0, 0, 70],
+                                   [0, 60, 100], [0, 80, 100], [0, 0, 230], [119, 11, 32]]
+        self.labels = ['road', 'sidewalk', 'building', 'wall', 'fence', 'pole',
+                       'traffic light', 'traffic sign', 'vegetation', 'terrain',
+                       'sky', 'person', 'rider', 'car', 'truck', 'bus', 'train',
+                       'motorcycle', 'bicycle']
+
+        self.images = suffix_file_search(images_dir, image_suffix)
+        if debug:
+            self.images = self.images[:10]
+
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        # Load image
+        img_path = os.path.join(self.images_dir, self.images[idx])
+        image = Image.open(img_path).convert('RGB')
+        image, label = rotate_image(image)
+        if self.transform:
+            transformed_image = self.transform(image)
+
+        return transformed_image, label

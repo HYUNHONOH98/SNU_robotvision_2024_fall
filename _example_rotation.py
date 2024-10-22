@@ -3,13 +3,30 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from dataset.gta_loader import SegmentationDataset
+from dataset.cityscapes_loader import CityscapesDataset2
 from torchvision import transforms
 import numpy as np
-
+from torch.optim.lr_scheduler import PolynomialLR
 import torch, gc
+from ignite.handlers.param_scheduler import LRScheduler
 gc.collect()
 torch.cuda.empty_cache()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+import torch.nn as nn
+
+class Decoder(nn.Module):
+    def __init__(self):
+        super(Decoder, self).__init__()
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))  # (2048, 1, 1)
+        self.flatten = nn.Flatten()  # (2048)
+        self.fc = nn.Linear(2048, 4)  # (4)
+
+    def forward(self, x):
+        x = self.avgpool(x)
+        x = self.flatten(x)
+        x = self.fc(x)
+        return x
 
 training_config = {
     "max_iter" : 40000,
@@ -25,7 +42,7 @@ training_config = {
 
 from model.deeplabv2 import DeeplabMulti
 model = DeeplabMulti(num_classes=19, pretrained=True)
-
+decoder = Decoder()
 
 image_transforms = transforms.Compose([
     transforms.Resize((512,1024)),
@@ -37,11 +54,10 @@ mask_transforms = transforms.Compose([
 ])
 
 # GTA5 dataset
-train_dataset = SegmentationDataset(
-    images_dir="/home/hyunho/sfda/data/gta5_dataset/images",
-    masks_dir="/home/hyunho/sfda/data/gta5_dataset/labels",
-    transform=image_transforms,
-    target_transform=mask_transforms,
+train_dataset = CityscapesDataset2(
+  images_dir="C:/Users/박종선/PycharmProjects/pythonProject/SNU_robotvision_2024_fall/data/cityscapes_dataset/leftImg8bit/train",
+  transform = image_transforms,
+  debug=True
 )
 
 train_loader = DataLoader(
@@ -51,14 +67,26 @@ train_loader = DataLoader(
 )
 
 # TODO
-# optimizer 정의
-# loss function 정의
+optimizer = torch.optim.SGD(model.parameters(),
+                            lr=training_config["initial_lr"],
+                            weight_decay=training_config["optimizer"]["weight_decay"],
+                            momentum=training_config["optimizer"]["momentum"])
+pt_scheduler = PolynomialLR(optimizer,
+                            total_iters=training_config["max_iter"])
+scheduler = LRScheduler(pt_scheduler)
+criterion = nn.CrossEntropyLoss()
+
+
 
 model.train()
 
 for iter, data in enumerate(train_loader):
   image, label = data
-  output = model(image)
+  output, features = model(image, return_features=True)
+  output2 = decoder(features)
+  result = criterion(output2, label)
+
+  import pdb; pdb.set_trace()
 
 
 # 어디에 회전 함수를 넣어야할지

@@ -59,8 +59,8 @@ mask_transforms = transforms.Compose([
 ])
 
 train_dataset = SegmentationDataset(
-    images_dir="/home/hyunho/sfda/data/gta5_dataset/images",
-    masks_dir="/home/hyunho/sfda/data/gta5_dataset/labels",
+    images_dir="/data/gta5_dataset/images",
+    masks_dir="/data/gta5_dataset/labels",
     transform=image_transforms,
     target_transform=mask_transforms,
 )

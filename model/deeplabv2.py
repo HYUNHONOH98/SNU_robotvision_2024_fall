@@ -72,7 +72,8 @@ class Classifier_Module(nn.Module):
             out += self.conv2d_list[i + 1](x)
             return out
 
-
+# model = ReNetMulti()
+# output, feature = model(input, return_features=True)
 class ResNetMulti(nn.Module):
     def __init__(self, block, layers, num_classes):
         self.inplanes = 64
