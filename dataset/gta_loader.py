@@ -30,7 +30,6 @@ mask_transforms = transforms.Compose([
 
 
 class SegmentationDataset(Dataset):
-    # def __init__(self, images_dir, masks_dir, transform: A.Compose =None, debug=False):
     def __init__(self, images_dir, masks_dir, transform=None, target_transform=None, debug=False, model="resnet"):
         self.model = model
         self.images_dir = images_dir
@@ -39,7 +38,55 @@ class SegmentationDataset(Dataset):
         self.target_transform= target_transform
         self.debug = debug
         self.gta_pallete = [(128, 64, 128),(244, 35, 232),(70, 70, 70),(102, 102, 156),(190, 153, 153),(153, 153, 153),(250, 170, 30),(220, 220, 0),(107, 142, 35),(152, 251, 152),(70, 130, 180),(220, 20, 60),(255, 0, 0),(0, 0, 142),(0, 0, 70),(0, 60, 100),(0, 80, 100),(0, 0, 230),(119, 11, 32)]
-        # self.gta_pallete = [[128, 64, 128], [244, 35, 232], [70, 70, 70], [102, 102, 156], [190, 153, 153], [153, 153, 153], [250, 170, 30], [220, 220, 0],[107, 142, 35], [152, 251, 152], [70, 130, 180],[220, 20, 60], [255, 0, 0], [0, 0, 142], [0, 0, 70],[0, 60, 100], [0, 80, 100], [0, 0, 230], [119, 11, 32]]
+        self.labels =["road","sidewalk","building","wall","fence","pole","light","sign","vegetation","terrain","sky","person","rider","car","truck","bus","train","motocycle","bicycle"]
+        # Get list of image and mask file names
+        if debug:
+            self.images = sorted(os.listdir(images_dir)[:10])
+            self.masks = sorted(os.listdir(masks_dir)[:10])
+        else:
+            self.images = sorted(os.listdir(images_dir))
+            self.masks = sorted(os.listdir(masks_dir))
+
+        assert len(self.images) == len(self.masks), "Number of images and masks should be equal."
+        self.palette_index_to_class = {0: 255,1: 255,2: 255,3: 255,4: 255,5: 255,6: 255,7: 0,8: 1,9: 255,10: 255,11: 2,12: 3,13: 4,14: 255,15: 255,16: 255,17: 5,18: 5,19: 6,20: 7,21: 8,22: 9,23: 10,24: 11,25: 12,26: 13,27: 14,28: 15,29: 255,30: 255,31: 16,32: 17,33: 18,34: 13}
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        # Load image
+        img_path = os.path.join(self.images_dir, self.images[idx])
+        image = Image.open(img_path).convert('RGB')
+
+
+        # Load mask
+        mask_path = os.path.join(self.masks_dir, self.masks[idx])
+        mask = Image.open(mask_path).convert('P')
+
+        # Map mask indices to class indices
+        mask_class = map_mask_indices(mask, self.palette_index_to_class)
+
+        # Convert to tensor
+        mask_class = torch.from_numpy(mask_class).unsqueeze(0)
+        
+        if self.transform:
+            transformed_image = self.transform(image)
+        if self.target_transform:
+            mask_class = self.target_transform(mask_class)
+
+        return transformed_image, mask_class.squeeze(0)
+    
+
+
+class SegmentationDataset(Dataset):
+    def __init__(self, images_dir, masks_dir, transform=None, target_transform=None, debug=False, model="resnet"):
+        self.model = model
+        self.images_dir = images_dir
+        self.masks_dir = masks_dir
+        self.transform = transform
+        self.target_transform= target_transform
+        self.debug = debug
+        self.gta_pallete = [(128, 64, 128),(244, 35, 232),(70, 70, 70),(102, 102, 156),(190, 153, 153),(153, 153, 153),(250, 170, 30),(220, 220, 0),(107, 142, 35),(152, 251, 152),(70, 130, 180),(220, 20, 60),(255, 0, 0),(0, 0, 142),(0, 0, 70),(0, 60, 100),(0, 80, 100),(0, 0, 230),(119, 11, 32)]
         self.labels =["road","sidewalk","building","wall","fence","pole","light","sign","vegetation","terrain","sky","person","rider","car","truck","bus","train","motocycle","bicycle"]
         # Get list of image and mask file names
         if debug:

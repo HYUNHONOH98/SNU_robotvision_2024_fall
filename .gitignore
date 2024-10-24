@@ -6,3 +6,5 @@ _resnet
 __pycache__
 image/
 exp/*
+wandb/
+exp_data/
