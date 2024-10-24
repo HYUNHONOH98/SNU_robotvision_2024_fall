@@ -10,6 +10,7 @@ import os
 from utils.pseudo_label import generate_pseudo_labels
 from utils.set_path import set_arg_path, set_arg_round_path
 from utils.loggers import set_logger
+from utils.data_augmentation import RandomResizedCropWithMask, RandomHorizontalFlip
 import utils.label_selection as label_selection
 from utils.model_parameter_ema import update_model_params
 from model.deeplabv2 import DeeplabMulti
@@ -18,7 +19,6 @@ from utils.loss import iou, HLoss
 import numpy as np
 import torch, gc
 import wandb
-
 
 gc.collect()
 torch.cuda.empty_cache()
@@ -32,6 +32,8 @@ def train_one_epoch(model, optimizer, data_loader, args=None):
     """args"""
     entropy_lambda = 0.005
     total_loss = 0.0
+
+    # Loss 선언
     ce_loss = nn.CrossEntropyLoss(ignore_index=255)
     entropy_loss = HLoss()
 
@@ -100,6 +102,10 @@ def main():
     alpha = 0.01
     debug = False
     model_dir = "/home/hyunho/sfda/exp/pseudo_train_2"
+    cityscape_image_mean = (0.4422, 0.4379, 0.4246)
+    cityscape_image_std = (0.2572, 0.2516, 0.2467)
+    input_size = (720, 1280)
+    pretrained_source_model_path = "/home/hyunho/sfda/exp/deeplabv2_1022/best_model_3_accuracy=0.8210.pt"
 
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
@@ -110,27 +116,32 @@ def main():
 
     ## model 초기화.
     teacher_model = DeeplabMulti(num_classes=19, pretrained=True).to(device)
-    teacher_model.load_state_dict(torch.load("/home/hyunho/sfda/exp/deeplabv2_1022/best_model_3_accuracy=0.8210.pt", map_location=device, weights_only=True))
+    teacher_model.load_state_dict(torch.load(pretrained_source_model_path, map_location=device, weights_only=True))
 
     student_model = DeeplabMulti(num_classes=19, pretrained=True).to(device)
-    student_model.load_state_dict(torch.load("/home/hyunho/sfda/exp/deeplabv2_1022/best_model_3_accuracy=0.8210.pt", map_location=device, weights_only=True))
+    student_model.load_state_dict(torch.load(pretrained_source_model_path, map_location=device, weights_only=True))
+
+    # normalize 
+    # Mean: tensor([0.2870, 0.3252, 0.2840])
+    # Std: tensor([0.1862, 0.1894, 0.1865])
 
     # transforms 정의
-    image_transforms = transforms.Compose([
-    transforms.Resize((720,1280)),
-    transforms.ToTensor(),
+    train_image_transforms = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=cityscape_image_mean, std=cityscape_image_std),
     ])
+    train_both_transforms = transforms.Compose([
+        RandomHorizontalFlip(0.5),
+        RandomResizedCropWithMask(input_size)
+        ])
 
-    mask_transforms = transforms.Compose([
-        transforms.Resize((720,1280), interpolation=transforms.InterpolationMode.NEAREST)
-    ])
 
 
     valid_dataset = CityscapesDataset(
         images_dir=valid_image_dir,
         masks_dir=valid_mask_dir,
-        transform=image_transforms,
-        target_transform=mask_transforms,
+        image_transform=train_image_transforms,
+        both_transform=train_both_transforms,
         debug=debug
     )
     valid_dataloader = DataLoader(
@@ -147,7 +158,7 @@ def main():
         save_round_eval_path, save_pseudo_label_color_path = set_arg_round_path(save, round_idx)
 
         # pseudo label 생성 및 저장
-        conf_dict, pred_cls_num, save_prob_path, save_pred_path  = generate_pseudo_labels(teacher_model, round_idx, save_round_eval_path, image_transforms, mask_transforms)
+        conf_dict, pred_cls_num, save_prob_path, save_pred_path  = generate_pseudo_labels(teacher_model, round_idx, save_round_eval_path, train_image_transforms)
         cls_thresh = label_selection.kc_parameters(conf_dict, pred_cls_num, tgt_portion, round_idx)
         label_selection.label_selection(cls_thresh,round_idx, save_prob_path, save_pred_path, save_pseudo_label_path, save_pseudo_label_color_path, save_round_eval_path)
 
@@ -156,8 +167,8 @@ def main():
         train_dataset = CityscapesDataset(
             images_dir=train_image_dir,
             masks_dir=save_pseudo_label_path,
-            transform=image_transforms,
-            target_transform=mask_transforms,
+            transform=train_image_transforms,
+            target_transform=train_both_transforms,
             mask_suffix="_leftImg8bit.png",
             debug=debug
         )
@@ -196,7 +207,7 @@ def main():
         )
         scheduler = PolynomialLR(optimizer,
                                 total_iters=len(train_dataloader))
-        student_model.freeze_bn()
+        student_model.freeze_encoder_bn()
         
 
         
@@ -223,4 +234,5 @@ def main():
 
 
 if __name__=="__main__":
+        args = get_args()
         main()

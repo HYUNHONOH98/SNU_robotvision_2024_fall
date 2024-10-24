@@ -12,16 +12,19 @@ from ignite.handlers.param_scheduler import LRScheduler
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from torchvision import transforms
-import cv2
 import numpy as np
+import os
+
+from utils.data_augmentation import RandomResizedCropWithMask, RandomHorizontalFlip
 
 import torch, gc
 gc.collect()
 torch.cuda.empty_cache()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+base_dir = "/home/hyunho/sfda/"
 training_config = {
-    "exp_name": "exp/deeplabv2_1022",
+    "exp_name": "exp/deeplabv2_1024",
     "max_iter" : 40000,
     "batch_size" : 2,
     "initial_lr" : 2.5e-4,
@@ -37,44 +40,21 @@ from model.deeplabv2 import DeeplabMulti
 model = DeeplabMulti(num_classes=19, pretrained=True).to(device)
 
 
-image_transforms = transforms.Compose([
-    # transforms.RandomResizedCrop(size =(1280, 720), ratio=(0.5, 2.0)),
-    transforms.Resize((720,1280)),
+train_image_transforms = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=(0.4422, 0.4379, 0.4246), std=(0.2572, 0.2516, 0.2467)),
-    transforms.ColorJitter()
-
-    # Add normalization if needed
 ])
-
-# Mean: tensor([0.4422, 0.4379, 0.4246])
-# Std: tensor([0.2572, 0.2516, 0.2467])
-
-# For the mask, we only need to resize and convert it to tensor
-mask_transforms = transforms.Compose([
-    # transforms.RandomResizedCrop(size =(1280, 720), ratio=(0.5, 2.0),  interpolation=transforms.InterpolationMode.NEAREST),
-    transforms.Resize((720,1280), interpolation=transforms.InterpolationMode.NEAREST),
-    # transforms.Lambda(lambda x: torch.from_numpy(np.array(x, dtype=np.int64))),
-    # transforms.ToTensor(),
-])
-
-
-train_image_transforms = transforms.Compose([
-        transforms.ToTensor(),
-    transforms.Normalize(mean=(0.4422, 0.4379, 0.4246), std=(0.2572, 0.2516, 0.2467)),
-    transforms.Resize((720, 1280), interpolation=transforms.InterpolationMode.NEAREST)
-])
-train_src_transforms = transforms.Compose([
-    transforms.RandomHorizontalFlip(0.5),
-    transforms.RandomResizedCrop(),
+train_both_transforms = transforms.Compose([
+    RandomHorizontalFlip(0.5),
+    RandomResizedCropWithMask((720, 1280))
     ])
 
 
 train_dataset = SegmentationDataset(
-    images_dir="/data/gta5_dataset/images",
-    masks_dir="/data/gta5_dataset/labels",
-    transform=image_transforms,
-    target_transform=mask_transforms,
+    images_dir=os.path.join(base_dir, "data/gta5_dataset/images"),
+    masks_dir=os.path.join(base_dir, "data/gta5_dataset/labels"),
+    transform=train_image_transforms,
+    both_transform=train_both_transforms,
 )
 
 

@@ -17,7 +17,7 @@ def kc_parameters(conf_dict, pred_cls_num, tgt_portion, round_idx, args=None):
     num_classes = 19
 
 
-    logger.info('###### Start kc generation in round {} ! ######'.format(round_idx))
+    print('###### Start kc generation in round {} ! ######'.format(round_idx))
     start_kc = time.time()
     # threshold for each class
     cls_thresh = np.ones(num_classes, dtype=np.float32)
@@ -35,9 +35,9 @@ def kc_parameters(conf_dict, pred_cls_num, tgt_portion, round_idx, args=None):
                 cls_thresh[idx_cls] = conf_dict[idx_cls][len_cls_thresh-1]
             conf_dict[idx_cls] = None
     
-    logger.info("Per class thresholds:")
-    logger.info(cls_thresh)
-    logger.info('###### Finish kc generation in round {}! Time cost: {:.2f} seconds. ######'.format(
+    print("Per class thresholds:")
+    print(cls_thresh)
+    print('###### Finish kc generation in round {}! Time cost: {:.2f} seconds. ######'.format(
         round_idx, time.time() - start_kc))
     return cls_thresh
 
@@ -48,7 +48,7 @@ def label_selection(cls_thresh, round_idx, save_prob_path, save_pred_path, save_
     debug = True
 
 
-    logger.info('###### Start pseudo-label generation in round {} ! ######'.format(round_idx))
+    print('###### Start pseudo-label generation in round {} ! ######'.format(round_idx))
     start_pl = time.time()
     filenames = [os.path.splitext(x)[0] for x in os.listdir(save_prob_path) if x.endswith('npy')]
     for sample_name in filenames:
@@ -80,4 +80,4 @@ def label_selection(cls_thresh, round_idx, save_prob_path, save_pred_path, save_
 
     
     shutil.rmtree(save_prob_path)
-    logger.info('###### Finish pseudo-label generation in round {}! Time cost: {:.2f} seconds. ######'.format(round_idx, time.time() - start_pl))
+    print('###### Finish pseudo-label generation in round {}! Time cost: {:.2f} seconds. ######'.format(round_idx, time.time() - start_pl))

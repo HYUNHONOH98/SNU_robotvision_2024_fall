@@ -16,11 +16,11 @@ def suffix_file_search(path, suffix):
 
 class CityscapesDataset(Dataset):
     # def __init__(self, images_dir, masks_dir, transform: A.Compose =None, debug=False):
-    def __init__(self, images_dir, masks_dir, transform=None, target_transform=None, debug=False, image_suffix="_leftImg8bit.png", mask_suffix="_labelTrainIds.png"):
+    def __init__(self, images_dir, masks_dir, image_transform=None, both_transform=None, debug=False, image_suffix="_leftImg8bit.png", mask_suffix="_labelTrainIds.png"):
         self.images_dir = images_dir
         self.masks_dir = masks_dir
-        self.transform = transform
-        self.target_transform= target_transform
+        self.image_transform = image_transform
+        self.both_transform= both_transform
         self.debug = debug
         self.cityscapes_palette = [[128, 64, 128], [244, 35, 232], [70, 70, 70], [102, 102, 156],
                  [190, 153, 153], [153, 153, 153], [250, 170,
@@ -59,12 +59,12 @@ class CityscapesDataset(Dataset):
         # Convert to tensor
         mask = torch.from_numpy(mask).unsqueeze(0)
         
-        if self.transform:
-            transformed_image = self.transform(image)
-        if self.target_transform:
-            mask = self.target_transform(mask)
+        if self.image_transform:
+            image = self.image_transform(image)
+        if self.both_transform:
+            image, mask = self.both_transform(image, mask)
 
-        return transformed_image, mask.squeeze(0), name
+        return image, mask.squeeze(0), name
     
 
 
