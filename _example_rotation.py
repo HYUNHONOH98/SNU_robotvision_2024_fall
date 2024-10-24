@@ -2,7 +2,6 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from dataset.gta_loader import SegmentationDataset
-from dataset.cityscapes_loader import CityscapesDataset3
 from dataset.cityscapes_loader import CityscapesDataset_RV
 from torchvision import transforms
 import numpy as np

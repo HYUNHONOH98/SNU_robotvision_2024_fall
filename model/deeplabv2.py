@@ -179,8 +179,13 @@ class ResNetMulti(nn.Module):
             for i in b[j]:
                 yield i
 
-    def freeze_bn(self):
-        for module in self.modules():
+    def freeze_encoder_bn(self):
+        modules = []
+        modules.extend(self.layer1.modules())
+        modules.extend(self.layer2.modules())
+        modules.extend(self.layer3.modules())
+        modules.extend(self.layer4.modules())
+        for module in modules:
             if isinstance(module, torch.nn.modules.BatchNorm2d):
                 for i in module.parameters():
                     i.requires_grad = False

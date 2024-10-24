@@ -196,7 +196,7 @@ def main():
         )
         scheduler = PolynomialLR(optimizer,
                                 total_iters=len(train_dataloader))
-        student_model.freeze_bn()
+        student_model.freeze_encoder_bn()
         
 
         
