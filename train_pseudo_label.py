@@ -32,6 +32,8 @@ def train_one_epoch(model, optimizer, data_loader, args=None):
     """args"""
     entropy_lambda = 0.005
     total_loss = 0.0
+
+    # Loss 선언
     ce_loss = nn.CrossEntropyLoss(ignore_index=255)
     entropy_loss = HLoss()
 
@@ -100,6 +102,10 @@ def main():
     alpha = 0.01
     debug = False
     model_dir = "/home/hyunho/sfda/exp/pseudo_train_2"
+    cityscape_image_mean = (0.4422, 0.4379, 0.4246)
+    cityscape_image_std = (0.2572, 0.2516, 0.2467)
+    input_size = (720, 1280)
+    pretrained_source_model_path = "/home/hyunho/sfda/exp/deeplabv2_1022/best_model_3_accuracy=0.8210.pt"
 
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
@@ -110,10 +116,10 @@ def main():
 
     ## model 초기화.
     teacher_model = DeeplabMulti(num_classes=19, pretrained=True).to(device)
-    teacher_model.load_state_dict(torch.load("/home/hyunho/sfda/exp/deeplabv2_1022/best_model_3_accuracy=0.8210.pt", map_location=device, weights_only=True))
+    teacher_model.load_state_dict(torch.load(pretrained_source_model_path, map_location=device, weights_only=True))
 
     student_model = DeeplabMulti(num_classes=19, pretrained=True).to(device)
-    student_model.load_state_dict(torch.load("/home/hyunho/sfda/exp/deeplabv2_1022/best_model_3_accuracy=0.8210.pt", map_location=device, weights_only=True))
+    student_model.load_state_dict(torch.load(pretrained_source_model_path, map_location=device, weights_only=True))
 
     # normalize 
     # Mean: tensor([0.2870, 0.3252, 0.2840])
@@ -122,11 +128,11 @@ def main():
     # transforms 정의
     train_image_transforms = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(mean=(0.4422, 0.4379, 0.4246), std=(0.2572, 0.2516, 0.2467)),
+        transforms.Normalize(mean=cityscape_image_mean, std=cityscape_image_std),
     ])
     train_both_transforms = transforms.Compose([
         RandomHorizontalFlip(0.5),
-        RandomResizedCropWithMask((720, 1280))
+        RandomResizedCropWithMask(input_size)
         ])
 
 
@@ -228,4 +234,5 @@ def main():
 
 
 if __name__=="__main__":
+        args = get_args()
         main()
