@@ -46,6 +46,7 @@ class CityscapesDataset(Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
+        name = self.images[idx]
         # Load image
         img_path = os.path.join(self.images_dir, self.images[idx])
         image = Image.open(img_path).convert('RGB')
@@ -63,7 +64,8 @@ class CityscapesDataset(Dataset):
         if self.target_transform:
             mask = self.target_transform(mask)
 
-        return transformed_image, mask.squeeze(0)
+        return transformed_image, mask.squeeze(0), name
+    
 
 
 """class CityscapesDataset2(Dataset):

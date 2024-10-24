@@ -9,6 +9,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 affine_par = True
 
@@ -177,6 +178,12 @@ class ResNetMulti(nn.Module):
         for j in range(len(b)):
             for i in b[j]:
                 yield i
+
+    def freeze_bn(self):
+        for module in self.modules():
+            if isinstance(module, torch.nn.modules.BatchNorm2d):
+                for i in module.parameters():
+                    i.requires_grad = False
 
     def optim_parameters(self, args):
         return [{'params': self.get_1x_lr_params_NOscale(), 'lr': args.learning_rate},

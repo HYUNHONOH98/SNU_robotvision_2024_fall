@@ -58,6 +58,18 @@ mask_transforms = transforms.Compose([
     # transforms.ToTensor(),
 ])
 
+
+train_image_transforms = transforms.Compose([
+        transforms.ToTensor(),
+    transforms.Normalize(mean=(0.4422, 0.4379, 0.4246), std=(0.2572, 0.2516, 0.2467)),
+    transforms.Resize((720, 1280), interpolation=transforms.InterpolationMode.NEAREST)
+])
+train_src_transforms = transforms.Compose([
+    transforms.RandomHorizontalFlip(0.5),
+    transforms.RandomResizedCrop(),
+    ])
+
+
 train_dataset = SegmentationDataset(
     images_dir="/data/gta5_dataset/images",
     masks_dir="/data/gta5_dataset/labels",

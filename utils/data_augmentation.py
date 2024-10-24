@@ -104,3 +104,56 @@ def rotate_image(image):
 
 
     return rotated_image, label_tensor
+import torch
+import random
+import torchvision.transforms.functional as F
+
+class RandomResizedCropWithMask:
+    def __init__(self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.)):
+        self.size = size
+        self.scale = scale
+        self.ratio = ratio
+
+    def get_params(self, img, scale, ratio):
+        """Get parameters for cropping and resizing."""
+        width, height = F.get_image_size(img)
+        area = height * width
+
+        for _ in range(10):
+            target_area = random.uniform(*scale) * area
+            log_ratio = torch.log(torch.tensor(ratio))
+            aspect_ratio = torch.exp(random.uniform(*log_ratio))
+
+            w = int(round(torch.sqrt(target_area * aspect_ratio)))
+            h = int(round(torch.sqrt(target_area / aspect_ratio)))
+
+            if 0 < w <= width and 0 < h <= height:
+                i = random.randint(0, height - h)
+                j = random.randint(0, width - w)
+                return i, j, h, w
+
+        # Fallback to center crop
+        in_ratio = width / height
+        if in_ratio < min(ratio):
+            w = width
+            h = int(round(w / min(ratio)))
+        elif in_ratio > max(ratio):
+            h = height
+            w = int(round(h * max(ratio)))
+        else:
+            w = width
+            h = height
+
+        i = (height - h) // 2
+        j = (width - w) // 2
+        return i, j, h, w
+
+    def __call__(self, img, mask):
+        # Random crop parameters
+        i, j, h, w = self.get_params(img, self.scale, self.ratio)
+
+        # Apply crop to both image and mask
+        img = F.resized_crop(img, i, j, h, w, self.size, interpolation=F.InterpolationMode.BILINEAR)
+        mask = F.resized_crop(mask, i, j, h, w, self.size, interpolation=F.InterpolationMode.NEAREST)
+
+        return img, mask
