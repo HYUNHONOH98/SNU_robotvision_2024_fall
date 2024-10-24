@@ -8,7 +8,7 @@ import cv2
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from pathlib import Path
-from utils.data_augmentation import rotate_image
+
 
 def suffix_file_search(path, suffix):
     dir = Path(path)
@@ -218,3 +218,30 @@ class CityscapesDataset_RV(Dataset):
             mask = self.target_transform(mask)
 
         return transformed_image, mask.squeeze(0), rot_transformed_image, rot_label
+
+
+class CityscapesDataset_blockgen(Dataset):
+    # def __init__(self, images_dir, masks_dir, transform: A.Compose =None, debug=False):
+    def __init__(self, images_dir, transform=None, debug=False,
+                 image_suffix="_leftImg8bit.png"):
+        self.images_dir = images_dir
+        self.transform = transform
+        self.debug = debug
+        self.images = suffix_file_search(images_dir, image_suffix)
+        if debug:
+            self.images = self.images[:10]
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        name = self.images[idx]
+        # Load image
+        img_path = os.path.join(self.images_dir, self.images[idx])
+        image = Image.open(img_path).convert('RGB')
+
+        if self.transform:
+            transformed_image = self.transform(image)
+
+
+        return transformed_image, name

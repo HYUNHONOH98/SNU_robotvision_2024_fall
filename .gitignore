@@ -8,3 +8,4 @@ image/
 exp/*
 wandb/
 exp_data/
+.idea/
