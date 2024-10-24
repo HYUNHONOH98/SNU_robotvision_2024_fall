@@ -1,14 +1,11 @@
+import sys
+sys.path.append("/home/hyunho/sfda")
+
+
 import torch
-import torch
-from torch import nn
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
-
-from ignite.engine import Engine, Events, create_supervised_trainer, create_supervised_evaluator
-from ignite.metrics import Accuracy, Loss
-from ignite.handlers import ModelCheckpoint
-from ignite.contrib.handlers import TensorboardLogger, global_step_from_engine
-from dataset.gta_loader import SegmentationDataset
+from dataset.cityscapes_loader import CityscapesDataset
 
 import PIL.Image as Image
 import numpy as np
@@ -22,19 +19,19 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 image_transforms = transforms.Compose([
-    transforms.Resize((512, 512)),
+    transforms.Resize((720, 1280)),
     transforms.ToTensor(),
     # Add normalization if needed
 ])
 
 mask_transforms = transforms.Compose([
-    transforms.Resize((512, 512), interpolation=transforms.InterpolationMode.NEAREST),
+    transforms.Resize((720, 1280), interpolation=transforms.InterpolationMode.NEAREST),
     transforms.Lambda(lambda x: torch.from_numpy(np.array(x, dtype=np.int64)))
 ])
 
-train_dataset = SegmentationDataset(
-    images_dir="/home/hyunho/sfda/data/gta5_dataset/images/train",
-    masks_dir="/home/hyunho/sfda/data/gta5_dataset/labels/train",
+train_dataset = CityscapesDataset(
+    images_dir="/home/hyunho/sfda/data/cityscapes_dataset/leftImg8bit/train",
+    masks_dir="/home/hyunho/sfda/data/cityscapes_dataset/gtFine/train",
     transform=image_transforms,
     target_transform=mask_transforms
 )
@@ -49,8 +46,8 @@ def compute_mean_std(dataloader):
     num_batches = 0
     num_pixels = 0
 
-    for images, _ in dataloader:
-        import pdb; pdb.set_trace()
+    for images, _, _ in dataloader:
+        # import pdb; pdb.set_trace()
         # images shape: [batch_size, 3, height, width]
         num_batches += 1
         num_pixels += images.size(0) * images.size(2) * images.size(3)

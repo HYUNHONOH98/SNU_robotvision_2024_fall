@@ -13,7 +13,7 @@ device = 'cpu'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def generate_pseudo_labels(model, round_idx, save_round_eval_path, image_transforms, mask_transforms, args=None):
+def generate_pseudo_labels(model, round_idx, save_round_eval_path, image_transform, args=None):
   logger = logging.getLogger('Cityscapes adaptation')
 
   """args"""
@@ -29,8 +29,7 @@ def generate_pseudo_labels(model, round_idx, save_round_eval_path, image_transfo
   train_dataset = CityscapesDataset(
       images_dir=target_image_dir,
       masks_dir=target_mask_dir,
-      transform=image_transforms,
-      target_transform=mask_transforms,
+      image_transform=image_transform,
       debug=debug
   )
 

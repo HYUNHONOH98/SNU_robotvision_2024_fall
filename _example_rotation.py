@@ -9,7 +9,14 @@ from torch.optim.lr_scheduler import PolynomialLR
 import torch, gc
 from ignite.handlers.param_scheduler import LRScheduler
 import torch.nn.functional as F
+import wandb
+import tqdm
 import random
+import os
+from utils.data_augmentation import RandomResizedCropWithMask
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 # 랜덤 시드를 사용하여 이미지와 마스크를 동일하게 자르는 클래스
 class RandomResizedCropWithSeed:
@@ -56,8 +63,9 @@ def calculate_iou(pred_mask, true_mask, num_classes):
     return torch.tensor(iou_scores).nanmean().item()
 
 # 모델 검증 함수 (평균 IoU와 회전 정확도 계산)
-def validate_model(model, val_loader, num_classes):
+def validate_model(model, val_loader,decoder,  num_classes):
     model.eval()  # 모델을 평가 모드로 설정
+    decoder.eval()
     total_iou = 0
     count = 0
     correct_rotations = 0
@@ -65,20 +73,20 @@ def validate_model(model, val_loader, num_classes):
     with torch.no_grad():  # 검증 시에는 그래디언트 계산 필요 없음
         for data in val_loader:
             image, mask, rot_image, rot_label = data  # 검증 데이터셋에서 이미지와 마스크 가져오기
-            output = model(image)  # 모델의 예측 출력
+            output = model(image.to(device))  # 모델의 예측 출력
             pred_mask = output.argmax(dim=1)  # 예측 마스크 (argmax로 클래스 인덱스 추출)
 
             # IoU 계산
-            iou = calculate_iou(pred_mask, mask, num_classes)
+            iou = calculate_iou(pred_mask, mask.to(device), num_classes)
             total_iou += iou
             count += 1
 
             # Rotation detection 검증
-            _, rot_feature = model(rot_image, return_features=True)
+            _, rot_feature = model(rot_image.to(device), return_features=True)
             rot_probability = decoder(rot_feature)
             pred_rotation = rot_probability.argmax(dim=1)
             rot_label_index = rot_label.argmax(dim=1)
-            correct_rotations += (pred_rotation == rot_label_index).sum().item()
+            correct_rotations += (pred_rotation.to(device) == rot_label_index.to(device)).sum().item()
             total_rotations += rot_label.size(0)
 
     # 평균 IoU와 회전 검출 정확도 반환
@@ -90,7 +98,6 @@ def validate_model(model, val_loader, num_classes):
 # GPU 메모리 정리 및 설정
 gc.collect()
 torch.cuda.empty_cache()
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 디코더 클래스 정의 (회전 검출을 위한 출력 계층)
 class Decoder(nn.Module):
@@ -119,15 +126,21 @@ training_config = {
     "lr_scheduler": "polynomial"
 }
 
+home_dir = "/home/hyunho/sfda"
+exp_dir = "/home/hyunho/sfda/exp/rotation"
+debug = False
+
 # 모델 초기화
 from model.deeplabv2 import DeeplabMulti
-model = DeeplabMulti(num_classes=19, pretrained=True)
-decoder = Decoder()
+model = DeeplabMulti(num_classes=19, pretrained=True).to(device)
+
+decoder = Decoder().to(device)
 
 # 이미지에 적용할 변환 (ToTensor -> Normalize)
 def image_transform():
     return transforms.Compose([
         transforms.ToTensor(),
+        transforms.Resize((512,1024)),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # ImageNet 정규화
     ])
 
@@ -139,12 +152,12 @@ def mask_transform():
 
 # Cityscapes 데이터셋 준비 (훈련 및 검증)
 train_dataset = CityscapesDataset_RV(
-    images_dir="C:/Users/박종선/PycharmProjects/pythonProject/SNU_robotvision_2024_fall/data/cityscapes_dataset/leftImg8bit/train",
-    masks_dir="C:/Users/박종선/PycharmProjects/pythonProject/SNU_robotvision_2024_fall/data/cityscapes_dataset/gtFine/train",
+    images_dir=f"{home_dir}/data/cityscapes_dataset/leftImg8bit/train",
+    masks_dir=f"{home_dir}/data/cityscapes_dataset/gtFine/train",
     transform=image_transform(),
     target_transform=mask_transform(),
-    crop_transform=RandomResizedCropWithSeed((512, 1024)),
-    debug=True
+    crop_transform=RandomResizedCropWithMask((512, 1024)),
+    debug=debug
 )
 
 train_loader = DataLoader(
@@ -154,11 +167,11 @@ train_loader = DataLoader(
 )
 
 val_dataset = CityscapesDataset_RV(
-    images_dir="C:/Users/박종선/PycharmProjects/pythonProject/SNU_robotvision_2024_fall/data/cityscapes_dataset/leftImg8bit/val",
-    masks_dir="C:/Users/박종선/PycharmProjects/pythonProject/SNU_robotvision_2024_fall/data/cityscapes_dataset/gtFine/val",
+    images_dir=f"{home_dir}/data/cityscapes_dataset/leftImg8bit/val",
+    masks_dir=f"{home_dir}/data/cityscapes_dataset/gtFine/val",
     transform=image_transform(),
     target_transform=mask_transform(),
-    debug=True
+    debug=debug
 )
 val_loader = DataLoader(
     val_dataset,
@@ -172,38 +185,55 @@ optimizer = torch.optim.SGD(list(model.parameters()) + list(decoder.parameters()
                             weight_decay=training_config["optimizer"]["weight_decay"],
                             momentum=training_config["optimizer"]["momentum"])
 pt_scheduler = PolynomialLR(optimizer, total_iters=training_config["max_iter"])
-scheduler = LRScheduler(pt_scheduler)
+
+
+wandb.init(
+    # set the wandb project where this run will be logged
+    project="robotvision",
+    )
+
 
 # 훈련 루프
 num_epochs = 3
 for epoch in range(num_epochs):
-    for iter, data in enumerate(train_loader):
+    epoch_loss= 0.0
+    for iter, data in tqdm.tqdm(enumerate(train_loader)):
         image, mask, rot_image, rot_label = data  # 배치 가져오기
 
         # Forward pass
-        output1 = model(image)
+        output1 = model(image.to(device))
         predicted_mask = output1.softmax(1).argmax(1)
 
-        output2, feature = model(rot_image, return_features=True)
+        output2, feature = model(rot_image.to(device), return_features=True)
         result_rotate = decoder(feature)
         rot_label_index = rot_label.argmax(dim=1).long()
 
         # 손실 계산 (세그멘테이션 + 회전 검출)
-        loss1 = F.cross_entropy(output1, mask.long(), ignore_index=255)
-        loss2 = F.cross_entropy(result_rotate, rot_label_index)
+        loss1 = F.cross_entropy(output1, mask.to(device).long(), ignore_index=255)
+        loss2 = F.cross_entropy(result_rotate, rot_label_index.to(device))
         loss_total = loss1 + loss2
 
         # Backpropagation 및 파라미터 업데이트
         optimizer.zero_grad()
+
+        epoch_loss += loss_total.item()
+
         loss_total.backward()
         optimizer.step()
-        scheduler.step()
 
-        import pdb; pdb.set_trace()  # 디버깅을 위해 추가
+    pt_scheduler.step()
+
 
     # 모델 검증
-    iou_score, Rotation_accuracy = validate_model(model, val_loader, num_classes=19)
+    iou_score, Rotation_accuracy = validate_model(model, val_loader,decoder, num_classes=19)
+
+    torch.save(model.state_dict(), os.path.join(exp_dir, f"encoder-epoch_{epoch}.pth"))
+    torch.save(decoder.state_dict(), os.path.join(exp_dir, f"decoder-epoch_{epoch}.pth"))
+
+    wandb.log({"train_loss": epoch_loss, "valid/IOU": iou_score, "valid/acc" : Rotation_accuracy})
 
     # 성능 출력
     print(f"Mean IoU: {iou_score:.4f}")
     print(f"Rotation_accuracy: {Rotation_accuracy*100:.4f}%")
+
+wandb.finish()
