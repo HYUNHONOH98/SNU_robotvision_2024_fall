@@ -46,21 +46,30 @@ def iou(preds, labels, C, EMPTY=1., ignore=None, per_image=False):
     return 100 * np.array(ious)
 
 
+
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-def weight_function(x, eta=2.0):
-    return (x**2 + 0.001**2)**eta
-
+from typing import Literal
 class HLoss(nn.Module):
     """
-    Weighted Entropy Loss
+    Weighted Entropy Loss with ignore index support
     """
-    def __init__(self):
+    def __init__(self, mode: Literal["sum","mean"] = "mean"):
         super(HLoss, self).__init__()
+        self.mode = mode
 
     def forward(self, x):
+        # Calculate entropy loss
+        B,C,H,W = x.shape
         b = F.softmax(x, dim=1) * F.log_softmax(x, dim=1)
-        b = -1.0 * b.sum(dim=1)
-        b = weight_function(b).sum()
+        b = -1.0 * b.sum(dim=1)  # Shape: (B, H, W)
+        # Apply weighting function and mean reduction
+        if self.mode == "mean":
+            b = self.weight_function(b).mean()
+        else:
+            b = self.weight_function(b).sum()
         return b
+    
+    def weight_function(self, x, eta=2.0):
+        return (x**2 + 1e-6)**eta

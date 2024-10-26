@@ -17,13 +17,13 @@ def generate_pseudo_labels(model, round_idx, save_round_eval_path, image_transfo
   logger = logging.getLogger('Cityscapes adaptation')
 
   """args"""
-  target_image_dir = "/home/hyunho/sfda/data/cityscapes_dataset/leftImg8bit/train"
-  target_mask_dir = "/home/hyunho/sfda/data/cityscapes_dataset/gtFine/train"
-  pseudo_batch_size = 2
-  debug = False
-  kc_value = 'conf'
-  num_classes = 19
-  ds_rate = 10
+  target_image_dir = args.target_image_dir
+  target_mask_dir = args.target_mask_dir
+  pseudo_batch_size = args.pseudo_batch_size
+  debug = args.debug
+  kc_value = args.kc_value
+  num_classes = args.num_classes
+  ds_rate = args.ds_rate
   
   
   train_dataset = CityscapesDataset(
@@ -71,7 +71,7 @@ def generate_pseudo_labels(model, round_idx, save_round_eval_path, image_transfo
         image_name = name[b_ind].split('/')[-1].split('.')[0]
 
         np.save('%s/%s.npy' % (save_prob_path, image_name), output[b_ind].numpy().transpose(1, 2, 0))
-        if debug:
+        if len(os.listdir(save_pred_vis_path)) < 10:
             colorize_mask(pred_labels[b_ind].numpy().astype(np.uint8)).save(
                 '%s/%s_color.png' % (save_pred_vis_path, image_name))
         Image.fromarray(pred_labels[b_ind].numpy().astype(np.uint8)).save(

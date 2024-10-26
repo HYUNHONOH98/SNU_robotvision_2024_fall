@@ -2,11 +2,7 @@ import os
 from PIL import Image
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
-import cv2
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
+from torch.utils.data import Dataset
 from pathlib import Path
 
 
@@ -62,7 +58,7 @@ class CityscapesDataset(Dataset):
         if self.image_transform:
             image = self.image_transform(image)
         if self.both_transform:
-            image, mask = self.both_transform(image, mask)
+            image, mask = self.both_transform((image, mask))
 
         return image, mask.squeeze(0), name
     

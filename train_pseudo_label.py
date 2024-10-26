@@ -9,11 +9,11 @@ from torchvision import transforms
 import os
 from utils.pseudo_label import generate_pseudo_labels
 from utils.set_path import set_arg_path, set_arg_round_path
-from utils.loggers import set_logger
 from utils.data_augmentation import RandomResizedCropWithMask, RandomHorizontalFlip
 import utils.label_selection as label_selection
 from utils.model_parameter_ema import update_model_params
 from model.deeplabv2 import DeeplabMulti
+from utils.arguments import get_args
 from tqdm import tqdm
 from utils.loss import iou, HLoss
 import numpy as np
@@ -24,18 +24,18 @@ gc.collect()
 torch.cuda.empty_cache()
 os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-logger = set_logger("/home/hyunho/sfda/exp_data", 'training logger', False)
+args = get_args()
 
 
 def train_one_epoch(model, optimizer, data_loader, args=None):
     """args"""
-    entropy_lambda = 0.005
+    entropy_lambda = args.entropy_lambda
+
     total_loss = 0.0
 
     # Loss 선언
     ce_loss = nn.CrossEntropyLoss(ignore_index=255)
-    entropy_loss = HLoss()
+    entropy_loss = HLoss(mode=args.cal_entropy)
 
     model.train()
     tot_iter = len(data_loader)
@@ -49,11 +49,13 @@ def train_one_epoch(model, optimizer, data_loader, args=None):
 
         loss = l1 + l2 * entropy_lambda
         loss.backward()
+
         total_loss += loss.item()
+        if (i+1) % 100 == 0:
+            print('iter = {} of {} completed, loss = {:.4f}'.format(i+1, tot_iter, loss.item()))
         optimizer.step()
-        logger.info('iter = {} of {} completed, loss = {:.4f}'.format(i+1, tot_iter, loss.item()))
-    
-    return total_loss
+    avg_loss = round(total_loss / tot_iter, 2)
+    return avg_loss
 
 def validate_one_epoch(model, dataloader, args=None):
     model.eval()
@@ -65,70 +67,55 @@ def validate_one_epoch(model, dataloader, args=None):
 
         _, classes = output.softmax(1).max(1)
         classes = classes.detach().cpu()
+        # TODO : 중간 아웃풋 10개씩 뽑기. (visualize 10 images 함수로 따로 만들어도 괜찮을 듯)
         score = iou(classes, label.long(), C=19, ignore=255)
         total_score += score
 
     total_score = total_score / tot_iter
     mIoU = round(np.mean(total_score),2)
 
-    logger.info(f'validation completed. mIoU : {mIoU}')
+    print(f'validation completed. mIoU : {mIoU}')
     return mIoU
 
 
 def main():
-
-    wandb.init(
-    # set the wandb project where this run will be logged
-    project="robotvision",
-    )
+    if not args.debug:
+        wandb.init(
+        # set the wandb project where this run will be logged
+        project="robotvision",
+        config=vars(args)
+        )
 
 
 
     """args"""
-    save = "/home/hyunho/sfda/exp_data"
-    num_rounds = 3
-    init_tgt_portion = 0.2
-    max_tgt_portion = 0.5
-    tgt_port_step = 0.05
-    num_epoch = 2
-    train_image_dir = "/home/hyunho/sfda/data/cityscapes_dataset/leftImg8bit/train"
-    valid_image_dir = "/home/hyunho/sfda/data/cityscapes_dataset/leftImg8bit/val"
-    valid_mask_dir = "/home/hyunho/sfda/data/cityscapes_dataset/gtFine/val"
-    train_batch_size = 2
-    initial_lr = 2.5e-4
-    weight_decay = 5e-4
-    momentum = 0.9
-    max_grad_norm = 1
-    alpha = 0.01
-    debug = False
-    model_dir = "/home/hyunho/sfda/exp/pseudo_train_2"
     cityscape_image_mean = (0.4422, 0.4379, 0.4246)
     cityscape_image_std = (0.2572, 0.2516, 0.2467)
     input_size = (720, 1280)
-    pretrained_source_model_path = "/home/hyunho/sfda/exp/deeplabv2_1022/best_model_3_accuracy=0.8210.pt"
 
-    if not os.path.exists(model_dir):
-        os.mkdir(model_dir)
+    if not os.path.exists(args.model_dir):
+        os.mkdir(args.model_dir)
 
 
     # 실험에 필요한 폴더들 생성
-    save_pseudo_label_path, save_stats_path, save_lst_path = set_arg_path(save)
+    save_pseudo_label_path, save_stats_path, save_lst_path = set_arg_path(args.save)
 
     ## model 초기화.
     teacher_model = DeeplabMulti(num_classes=19, pretrained=True).to(device)
-    teacher_model.load_state_dict(torch.load(pretrained_source_model_path, map_location=device, weights_only=True))
+    teacher_model.load_state_dict(torch.load(args.pretrained_source_model_path, map_location=device, weights_only=True))
 
     student_model = DeeplabMulti(num_classes=19, pretrained=True).to(device)
-    student_model.load_state_dict(torch.load(pretrained_source_model_path, map_location=device, weights_only=True))
-
-    # normalize 
-    # Mean: tensor([0.2870, 0.3252, 0.2840])
-    # Std: tensor([0.1862, 0.1894, 0.1865])
+    student_model.load_state_dict(torch.load(args.pretrained_source_model_path, map_location=device, weights_only=True))
 
     # transforms 정의
     train_image_transforms = transforms.Compose([
         transforms.ToTensor(),
+        transforms.Normalize(mean=cityscape_image_mean, std=cityscape_image_std)
+    ])
+    pseudo_image_transform = transforms.Compose([
+        transforms.ToTensor(),
         transforms.Normalize(mean=cityscape_image_mean, std=cityscape_image_std),
+        transforms.Resize(input_size)
     ])
     train_both_transforms = transforms.Compose([
         RandomHorizontalFlip(0.5),
@@ -138,95 +125,88 @@ def main():
 
 
     valid_dataset = CityscapesDataset(
-        images_dir=valid_image_dir,
-        masks_dir=valid_mask_dir,
+        images_dir=args.valid_image_dir,
+        masks_dir=args.valid_mask_dir,
         image_transform=train_image_transforms,
-        both_transform=train_both_transforms,
-        debug=debug
+        # both_transform=train_both_transforms,
+        debug=args.debug
     )
     valid_dataloader = DataLoader(
         valid_dataset,
-        batch_size=train_batch_size,
+        batch_size=args.train_batch_size,
         shuffle=False,
         pin_memory=True,
         num_workers=16
     )
 
-    tgt_portion = init_tgt_portion
-    for round_idx in range(num_rounds):
+    tgt_portion = args.init_tgt_portion
+
+    nn.utils.clip_grad_norm_(
+        student_model.parameters(),
+        args.max_grad_norm
+    )
+    optimizer = torch.optim.SGD(
+            student_model.parameters(), 
+            lr=args.initial_lr,
+            weight_decay=args.weight_decay,
+            momentum=args.momentum
+        )
+    scheduler = PolynomialLR(optimizer,
+                            # total_iters=5,
+                            power=args.poly_power )
+    student_model.freeze_encoder_bn()
+
+    for round_idx in range(args.num_rounds):
         # round 마다 pseudo label 저장
-        save_round_eval_path, save_pseudo_label_color_path = set_arg_round_path(save, round_idx)
+        save_round_eval_path, save_pseudo_label_color_path = set_arg_round_path(args.save, round_idx)
 
-        # pseudo label 생성 및 저장
-        conf_dict, pred_cls_num, save_prob_path, save_pred_path  = generate_pseudo_labels(teacher_model, round_idx, save_round_eval_path, train_image_transforms)
-        cls_thresh = label_selection.kc_parameters(conf_dict, pred_cls_num, tgt_portion, round_idx)
-        label_selection.label_selection(cls_thresh,round_idx, save_prob_path, save_pred_path, save_pseudo_label_path, save_pseudo_label_color_path, save_round_eval_path)
+        if round_idx == 0 or args.alpha > 0 or args.debug == True: # EMA 가 진행되지 않는다면 pseudo label 을 계속 재생성 할 필요 없음 (teacher model freeze)
+        # pseudo label 생성 및 저장. 
+            conf_dict, pred_cls_num, save_prob_path, save_pred_path  = generate_pseudo_labels(teacher_model, round_idx, save_round_eval_path, pseudo_image_transform, args)
 
-        tgt_portion = min(tgt_portion + tgt_port_step, max_tgt_portion)
+        cls_thresh = label_selection.kc_parameters(conf_dict, pred_cls_num, tgt_portion, round_idx, args)
+        label_selection.label_selection(cls_thresh, round_idx, save_prob_path, save_pred_path, save_pseudo_label_path, save_pseudo_label_color_path, save_round_eval_path, args)
+        
+        tgt_portion = min(tgt_portion + args.tgt_port_step, args.max_tgt_portion)
 
         train_dataset = CityscapesDataset(
-            images_dir=train_image_dir,
+            images_dir=args.train_image_dir,
             masks_dir=save_pseudo_label_path,
-            transform=train_image_transforms,
-            target_transform=train_both_transforms,
+            image_transform=train_image_transforms,
+            both_transform=train_both_transforms,
             mask_suffix="_leftImg8bit.png",
-            debug=debug
+            debug=args.debug
         )
         train_dataloader = DataLoader(
             train_dataset,
-            batch_size=train_batch_size,
+            batch_size=args.train_batch_size,
             shuffle=True,
             pin_memory=True,
             num_workers=16
         )
 
-        # Encoder training ONLY
-        # params = [ 
-        #         {'params': student_model.layer1.parameters(), 'lr': initial_lr * 1.0},
-        #         {'params': student_model.layer2.parameters(), 'lr': initial_lr * 1.0},
-        #         {'params': student_model.layer3.parameters(), 'lr': initial_lr * 1.0},
-        #         {'params': student_model.layer4.parameters(), 'lr': initial_lr * 1.0},
-        #         ]
-        # To clip grad norm
-        # param_only = []
-        # for param in params:
-        #      param_only.extend(param["params"])
-
-        params = student_model.parameters()
-
-        optimizer = torch.optim.SGD(
-            params, 
-            lr=initial_lr,
-            weight_decay=weight_decay,
-            momentum=momentum
-        )
-        
-        nn.utils.clip_grad_norm_(
-            params,
-            max_grad_norm
-        )
-        scheduler = PolynomialLR(optimizer,
-                                total_iters=len(train_dataloader))
-        student_model.freeze_encoder_bn()
-        
-
-        
-        for epoch in range(num_epoch):
+        new_record = 0.0
+        for epoch in range(args.num_epoch):
             print(f"Epoch {epoch}")
-            train_loss = train_one_epoch(student_model, optimizer, train_dataloader)
+            train_loss = train_one_epoch(student_model, optimizer, train_dataloader, args)
             valid_score = validate_one_epoch(student_model, valid_dataloader)
             scheduler.step()
 
-            wandb.log({"train_loss": train_loss, "valid_score": valid_score})
-        
-        update_model_params(teacher_model, student_model, alpha)
-        print("모델 업데이트 끝.")
+            if not args.debug:
+                wandb.log({"train_loss": train_loss, "valid_score": valid_score})
+            
+        if args.alpha > 0:
+            # EMA 로 teacher model update 하기.
+            update_model_params(teacher_model, student_model, args.alpha)
 
-        
-        torch.save(student_model.state_dict(), os.path.join(model_dir,f'student_{round_idx}.pth'))
-        torch.save(teacher_model.state_dict(), os.path.join(model_dir,f'teacher_{round_idx}.pth'))
+        print("모델 업데이트 끝.")
+        if valid_score > new_record:
+            torch.save(student_model.state_dict(), os.path.join(args.model_dir,f'student-round_{round_idx}-IOU-{valid_score}.pth'))
+            torch.save(teacher_model.state_dict(), os.path.join(args.model_dir,f'teacher-round_{round_idx}-IOU-{valid_score}.pth'))
+            new_record = valid_score
     
-    wandb.finish()
+    if not args.debug:
+        wandb.finish()
         
         
       
@@ -234,5 +214,5 @@ def main():
 
 
 if __name__=="__main__":
-        args = get_args()
+        
         main()

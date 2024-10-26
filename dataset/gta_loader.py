@@ -5,8 +5,6 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 import cv2
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 
 image_transforms = transforms.Compose([
     transforms.RandomResizedCrop(size =(1280, 720), ratio=(0.5, 2.0)),
