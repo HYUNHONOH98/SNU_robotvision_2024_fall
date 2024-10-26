@@ -75,6 +75,8 @@ class Classifier_Module(nn.Module):
 
 # model = ReNetMulti()
 # output, feature = model(input, return_features=True)
+from torch.utils.checkpoint import checkpoint
+
 class ResNetMulti(nn.Module):
     def __init__(self, block, layers, num_classes):
         self.inplanes = 64
@@ -119,20 +121,31 @@ class ResNetMulti(nn.Module):
     def _make_pred_layer(self, block, inplanes, dilation_series, padding_series, num_classes):
         return block(inplanes, dilation_series, padding_series, num_classes)
 
+    def custom(self, module):
+        def custom_forward(*inputs):
+            inputs = module(inputs[0])
+            return inputs
+        return custom_forward
+    
     def forward(self, x, return_features=False):
         input_size = x.size()[2:]
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
-        x = self.layer1(x)
-        x = self.layer2(x)
+        # x = self.layer1(x)
+        x = checkpoint(self.custom(self.layer1), x)
 
-        x = self.layer3(x)
+        # x = self.layer2(x)
+        x = checkpoint(self.custom(self.layer2), x)
+
+        # x = self.layer3(x)
+        x = checkpoint(self.custom(self.layer3), x)
         # x1 = self.layer5(x)
         # x1 = F.interpolate(x1, size=input_size, mode='bilinear', align_corners=True)
 
-        x = self.layer4(x)
+        x = checkpoint(self.custom(self.layer4), x)
+        # x = self.layer4(x)
         feats = x
         x1 = self.layer6(x)
         x1 = F.interpolate(x1, size=input_size, mode='bilinear', align_corners=True)

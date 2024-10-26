@@ -46,8 +46,6 @@ def iou(preds, labels, C, EMPTY=1., ignore=None, per_image=False):
     return 100 * np.array(ious)
 
 
-
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Literal
@@ -73,3 +71,5 @@ class HLoss(nn.Module):
     
     def weight_function(self, x, eta=2.0):
         return (x**2 + 1e-6)**eta
+
+
