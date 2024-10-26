@@ -62,7 +62,6 @@ class EffReconstructionDecoder(nn.Module):
         self.upconv4 = nn.Sequential(
             nn.Upsample(size=output_size, mode='bilinear', align_corners=False),
             nn.Conv2d(256, 3, kernel_size=3, padding=1),
-            nn.Sigmoid()
         )
 
     def forward(self, x):

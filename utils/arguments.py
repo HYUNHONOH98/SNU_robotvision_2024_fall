@@ -37,7 +37,7 @@ ds_rate = 10
 
 # loss
 entropy_lambda = 0.005
-rotate_lambda = 0.01
+rotation_lambda = 0.01
 reconstruction_lambda = 0.01
 
 def join_base_path(args):
@@ -110,7 +110,7 @@ def get_args():
                         help= "Entropy Loss 계수")
     parser.add_argument("--reconstruction_lambda", type=float, default=reconstruction_lambda,
                         help= "Entropy Loss 계수")
-    parser.add_argument("--rotate_lambda", type=float, default=rotate_lambda,
+    parser.add_argument("--rotation_lambda", type=float, default=rotation_lambda,
                         help= "Entropy Loss 계수")
     parser.add_argument("--accumulation_steps", type=int, default=accumulation_steps,
                         help= "Gradient accumulation 정도")

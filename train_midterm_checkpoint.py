@@ -55,17 +55,11 @@ def train_one_epoch(model, optimizer, data_loader, args=None, recon_decoder=None
     model.zero_grad()       
     optimizer.zero_grad()                            
     for i, data in tqdm(enumerate(data_loader)):
-        img, label, _ = data
+        img, label, _, rotated_img, rotate_label = data
         img = img.to(device)
         label = label.to(device)
-        
-        rotated_img, rotate_label = rotate_image(img)
-        if rotate_label[0].item() == 1:
-            # 회전이 일어나지 않음.
-            rotate_encoding = False
-        else:
-            # 회전이 일어났음,
-            rotate_encoding = True
+        rotated_img = rotated_img.to(device)
+        rotate_label = rotate_label.to(device)
 
         output, feature = model(img, return_features=True)
 
@@ -80,22 +74,23 @@ def train_one_epoch(model, optimizer, data_loader, args=None, recon_decoder=None
             _, masked_feature = model(masked_img, return_features=True)
             masked_output = recon_decoder(masked_feature) # AUX decoder for reconstruction
 
-            unnormed_img = img * data_std + data_mean
-            unnormed_output = masked_output * data_std + data_mean
+            unnormed_img = (img * data_std + data_mean).clamp(0, 1)
+            unnormed_output = (masked_output * data_std + data_mean).clamp(0, 1)
 
             ssim_loss = 1 - piq.ssim(unnormed_output, unnormed_img, data_range=1.0)
             # ssim_loss = l1_loss(unnormed_output, unnormed_img)
 
-            loss += ssim_loss * args.ssim_lambda
+            loss += ssim_loss * args.reconstruction_lambda
         
-        if args.rotate_lambda > 0.:
-            if rotate_encoding:
-                _, feature = model(rotated_img, return_features=True)
-            rotate_output = rotate_decoder(feature)
+        if args.rotation_lambda > 0.:
+            _, feature = model(rotated_img, return_features=True)
+            rotated_output = rotate_decoder(feature)
+            rotated_output = rotated_output
+            rotate_label = rotate_label.argmax(dim=1).long()
 
-            rotation_loss = rotation_loss(rotate_output, rotate_label)
+            rot_ce_loss = rotation_loss(rotated_output, rotate_label)
 
-            loss += rotation_loss * args.rotation_lambda
+            loss += rot_ce_loss * args.rotation_lambda
 
         loss /= args.accumulation_steps     
         loss.backward()
@@ -235,7 +230,8 @@ def main():
             image_transform=train_image_transforms,
             both_transform=train_both_transforms,
             mask_suffix="_leftImg8bit.png",
-            debug=args.debug
+            debug=args.debug,
+            rotate_function=rotate_image
         )
         train_dataloader = DataLoader(
             train_dataset,

@@ -149,16 +149,23 @@ class RandomResizedCropWithMask:
         return i, j, h, w
 
     def __call__(self, sample):
-        img, mask = sample
+        if len(sample) == 2:
+            img, mask = sample
 
-        # Random crop parameters
-        i, j, h, w = self.get_params(img, self.scale, self.ratio)
+            # Random crop parameters
+            i, j, h, w = self.get_params(img, self.scale, self.ratio)
 
-        # Apply crop to both image and mask
-        img = F.resized_crop(img, i, j, h, w, self.size, interpolation=F.InterpolationMode.BILINEAR)
-        mask = F.resized_crop(mask, i, j, h, w, self.size, interpolation=F.InterpolationMode.NEAREST)
+            # Apply crop to both image and mask
+            img = F.resized_crop(img, i, j, h, w, self.size, interpolation=F.InterpolationMode.BILINEAR)
+            mask = F.resized_crop(mask, i, j, h, w, self.size, interpolation=F.InterpolationMode.NEAREST)
 
-        return img, mask
+            return img, mask
+        
+        else:
+            i, j, h, w = self.get_params(sample, self.scale, self.ratio)
+            sample = F.resized_crop(sample, i, j, h, w, self.size, interpolation=F.InterpolationMode.BILINEAR)
+
+            return sample
 
 from PIL import Image
 from torchvision import transforms
@@ -167,10 +174,13 @@ class RandomHorizontalFlip:
         self.p = p
 
     def __call__(self, sample):
-        img, mask = sample
+        if len(sample) == 2:
+            img, mask = sample
 
-        if random.random() < self.p:
-            img = torch.flip(img, dims=[2])
-            mask = torch.flip(mask, dims=[2])
+            if random.random() < self.p:
+                img = torch.flip(img, dims=[2])
+                mask = torch.flip(mask, dims=[2])
 
-        return img, mask
+            return img, mask
+        else:
+            return torch.flip(sample, dims=[2])
