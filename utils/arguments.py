@@ -14,7 +14,7 @@ init_tgt_portion = 0.2
 max_tgt_portion = 0.5
 tgt_port_step = 0.05
 num_epoch = 2
-train_batch_size = 2
+train_batch_size = 1
 initial_lr = 2.5e-4
 weight_decay = 5e-4
 momentum = 0.9
@@ -26,6 +26,7 @@ cityscape_image_mean = (0.4422, 0.4379, 0.4246)
 cityscape_image_std = (0.2572, 0.2516, 0.2467)
 input_size = (720, 1280)
 cal_entropy = "mean"
+accumulation_steps = 2
 
 # Pseudo labeling
 target_image_dir =  "data/cityscapes_dataset/leftImg8bit/train"
@@ -36,6 +37,8 @@ ds_rate = 10
 
 # loss
 entropy_lambda = 0.005
+rotation_lambda = 0.01
+reconstruction_lambda = 0.01
 
 def join_base_path(args):
     args.save = osp.join(BASE_DIR, args.save)
@@ -100,11 +103,16 @@ def get_args():
                         help= "pseudo label downsampling rate")
     parser.add_argument("--num_classes", type=int, default=num_classes,
                         help= "target dataset class 개수")
-    parser.add_argument("--entropy_lambda", type=float, default=entropy_lambda,
-                        help= "Entropy Loss 계수")
     parser.add_argument("--cal_entropy", type=str, default=cal_entropy,
                         help= "Entropy Loss 계산 방식")
     
-    import pdb;pdb.set_trace()
-
+    parser.add_argument("--entropy_lambda", type=float, default=entropy_lambda,
+                        help= "Entropy Loss 계수")
+    parser.add_argument("--reconstruction_lambda", type=float, default=reconstruction_lambda,
+                        help= "Entropy Loss 계수")
+    parser.add_argument("--rotation_lambda", type=float, default=rotation_lambda,
+                        help= "Entropy Loss 계수")
+    parser.add_argument("--accumulation_steps", type=int, default=accumulation_steps,
+                        help= "Gradient accumulation 정도")
+    
     return join_base_path(parser.parse_known_args()[0])

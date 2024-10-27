@@ -12,12 +12,13 @@ def suffix_file_search(path, suffix):
 
 class CityscapesDataset(Dataset):
     # def __init__(self, images_dir, masks_dir, transform: A.Compose =None, debug=False):
-    def __init__(self, images_dir, masks_dir, image_transform=None, both_transform=None, debug=False, image_suffix="_leftImg8bit.png", mask_suffix="_labelTrainIds.png"):
+    def __init__(self, images_dir, masks_dir, image_transform=None, both_transform=None, debug=False, image_suffix="_leftImg8bit.png", mask_suffix="_labelTrainIds.png", rotate_function=None):
         self.images_dir = images_dir
         self.masks_dir = masks_dir
         self.image_transform = image_transform
         self.both_transform= both_transform
         self.debug = debug
+        self.rotate_function = rotate_function
         self.cityscapes_palette = [[128, 64, 128], [244, 35, 232], [70, 70, 70], [102, 102, 156],
                  [190, 153, 153], [153, 153, 153], [250, 170,
                                                     30], [220, 220, 0],
@@ -55,12 +56,21 @@ class CityscapesDataset(Dataset):
         # Convert to tensor
         mask = torch.from_numpy(mask).unsqueeze(0)
         
+        if self.rotate_function:
+            rotated_img, rotate_label = self.rotate_function(image)
+            rotated_img = self.image_transform(rotated_img)
+            rotated_img = self.both_transform(rotated_img)
+
+        
         if self.image_transform:
             image = self.image_transform(image)
         if self.both_transform:
             image, mask = self.both_transform((image, mask))
 
-        return image, mask.squeeze(0), name
+        if self.rotate_function:
+            return image, mask.squeeze(0), name, rotated_img, rotate_label
+        else:
+            return image, mask.squeeze(0), name
     
 
 
