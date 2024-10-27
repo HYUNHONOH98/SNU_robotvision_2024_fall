@@ -55,9 +55,27 @@ input_size = (720, 1280)
 
 
 
-model_path = "/home/hyunho/sfda/exp/pseudo_train_7/student-round_0-IOU-30.47.pth"
+"""
+VER  7
+"""
+# model_path = "/home/hyunho/sfda/exp/pseudo_train_7/student-round_0-IOU-30.47.pth"
+# model_path = "/home/hyunho/sfda/exp/pseudo_train_7/student-round_1-IOU-30.37.pth"
 model_path = "/home/hyunho/sfda/exp/pseudo_train_7/student-round_2-IOU-29.47.pth"
-round_num = model_path.split("/")[-1].split("-")[1]
+
+
+"""
+VER 8 : rotation, reconstruction
+"""
+# model_path = "/home/hyunho/sfda/exp/pseudo_train_8/student-round_0-IOU-34.69.pth"
+# model_path = "/home/hyunho/sfda/exp/pseudo_train_8/student-round_1-IOU-34.52.pth"
+# model_path = "/home/hyunho/sfda/exp/pseudo_train_8/student-round_2-IOU-31.03.pth"
+
+"""
+VER 9 : rotation
+"""
+# model_path = "/home/hyunho/sfda/exp/pseudo_train_9/student-round_0-IOU-25.92.pth"
+# model_path = "/home/hyunho/sfda/exp/pseudo_train_9/student-round_1-IOU-33.75.pth"
+# model_path = "/home/hyunho/sfda/exp/pseudo_train_9/student-round_2-IOU-26.17.pth"
 
 student_model = DeeplabMulti(num_classes=19, pretrained=True).to(device)
 student_model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
@@ -87,12 +105,32 @@ valid_dataloader = DataLoader(
 
 mIoU, visualize_imgs = validate_one_epoch(student_model, valid_dataloader)
 image_path = "/home/hyunho/sfda/_example/image/example_output"
-if not os.path.exists(os.path.join(image_path, round_num)):
-   os.mkdir(os.path.join(image_path, round_num))
+
+import matplotlib.pyplot as plt
+
+exp_name = model_path.split("/")[-2]
+if not os.path.exists(os.path.join(image_path, exp_name)):
+   os.mkdir(os.path.join(image_path, exp_name))
+
+round_num = model_path.split("/")[-1].split(".")[0]
+if not os.path.exists(os.path.join(image_path, exp_name, round_num)):
+   os.mkdir(os.path.join(image_path, exp_name, round_num))
 for id, img in enumerate(visualize_imgs):
   pred, label = img
 
-  colorize_mask(pred[0].numpy().astype(np.uint8)).save(
-                '%s/%s/%s_pred.png' % (image_path, round_num, id))
-  colorize_mask(label[0].numpy().astype(np.uint8)).save(
-                '%s/%s/%s_label.png' % (image_path, round_num, id))
+  color_pred = colorize_mask(pred[0].numpy().astype(np.uint8))
+  color_label = colorize_mask(label[0].numpy().astype(np.uint8))
+
+  plt.figure(figsize=(10, 5))
+  
+  plt.subplot(1,2,1)
+  plt.imshow(color_pred)
+  plt.title("prediction from student")
+  plt.axis("off")
+
+  plt.subplot(1,2,2)
+  plt.imshow(color_label)
+  plt.title("label")
+  plt.axis("off")
+
+  plt.savefig('%s/%s/%s/%s_pred.png' % (image_path, exp_name, round_num, id))
