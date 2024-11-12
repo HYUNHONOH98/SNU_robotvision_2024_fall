@@ -4,6 +4,7 @@ import os.path as osp
 BASE_DIR = "/home/hyunho/sfda"
 save =  "exp_data_debug"
 train_image_dir = "data/cityscapes_dataset/leftImg8bit/train"
+train_mask_dir = "data/cityscapes_dataset/gtFine/train"
 valid_image_dir = "data/cityscapes_dataset/leftImg8bit/val"
 valid_mask_dir = "data/cityscapes_dataset/gtFine/val"
 pretrained_source_model_path = "exp/deeplabv2_1024/best_model_4_accuracy=0.8350.pt"

@@ -77,6 +77,32 @@ class Classifier_Module(nn.Module):
 # output, feature = model(input, return_features=True)
 from torch.utils.checkpoint import checkpoint
 
+
+class ResNetMultiBayes(nn.Module):
+    def __init__(self, block, layers, num_classes):
+        super(ResNetMultiBayes, self).__init__()
+        self.resnet = ResNetMulti(block, layers, num_classes)
+        self.thresholdnet = ThresholdNet(input_size ,256) # input size, output size
+        self.avgpool = nn.AdaptiveAvgPool2D(1) # class num?
+
+    def forward(self, x,):
+        output, feature = self.resnet(x, return_features=True)
+        feature = self.avgpool(feature)
+        mu, logvar = self.thresholdnet(torch.flatten(feature, start_dim=1))
+
+        return output, mu, logvar
+
+
+
+class ThresholdNet(nn.Module):
+    def __init__(self, input_channels, output_channels):
+        super(ThresholdNet, self).__init__()
+        self.logvar_layer = nn.Linear(input_channels, output_channels)
+        self.mu_layer = nn.Linear(input_channels, output_channels)
+
+    def forward(self, x):
+        return self.mu_layer(x), self.logvar_layer(x)
+
 class ResNetMulti(nn.Module):
     def __init__(self, block, layers, num_classes):
         self.inplanes = 64
@@ -231,4 +257,25 @@ def DeeplabMulti(num_classes=19, pretrained=True, backbone="resnet50"):
         restore_from = f'{cwd}/model/pretrained/resnet50-19c8e357.pth'
         saved_state_dict = torch.load(restore_from, weights_only=True)
         model.load_state_dict(saved_state_dict, strict=False)
+    return model
+
+
+def DeeplabMultiBayes(num_classes=19, pretrained=True, backbone="resnet50"):
+    """
+    
+
+    Args:
+        num_classes (int, optional): _description_. Defaults to 19.
+        pretrained (bool, optional): _description_. Defaults to True.
+        backbone (str, optional): _description_. Defaults to "resnet50".
+
+    Returns:
+        _type_: _description_
+    """
+    if backbone == "resnet101":
+        layers = [3, 4, 23, 3]
+    elif backbone == "resnet50":
+        layers = [3, 4, 6, 3]
+    model = ResNetMultiBayes(Bottleneck, layers, num_classes)
+
     return model
