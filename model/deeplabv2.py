@@ -82,14 +82,15 @@ class ResNetMultiBayes(nn.Module):
     def __init__(self, block, layers, num_classes):
         super(ResNetMultiBayes, self).__init__()
         self.resnet = ResNetMulti(block, layers, num_classes)
-        self.thresholdnet = ThresholdNet(input_size ,256) # input size, output size
-        self.avgpool = nn.AdaptiveAvgPool2D(1) # class num?
+        self.thresholdnet = ThresholdNet(2048 ,256) # input size, output size
+        self.avgpool = nn.AdaptiveAvgPool2d((19, 1)) # class num?
 
     def forward(self, x,):
-        output, feature = self.resnet(x, return_features=True)
-        feature = self.avgpool(feature)
-        mu, logvar = self.thresholdnet(torch.flatten(feature, start_dim=1))
-
+        output, feature = self.resnet(x, return_features=True) 
+        feature = self.avgpool(feature) # feature.shape is (2, 2048, 1, 1)
+        # mu, logvar = self.thresholdnet(torch.flatten(feature, start_dim=1)) # ORIGINAL
+        mu, logvar = self.thresholdnet(torch.squeeze(feature, dim=-1).permute(0,2,1)) # CHANGED (multi-channel, 19)
+        
         return output, mu, logvar
 
 
@@ -159,19 +160,19 @@ class ResNetMulti(nn.Module):
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
-        # x = self.layer1(x)
-        x = checkpoint(self.custom(self.layer1), x)
+        x = self.layer1(x)
+        # x = checkpoint(self.custom(self.layer1), x)
 
-        # x = self.layer2(x)
-        x = checkpoint(self.custom(self.layer2), x)
+        x = self.layer2(x)
+        # x = checkpoint(self.custom(self.layer2), x)
 
-        # x = self.layer3(x)
-        x = checkpoint(self.custom(self.layer3), x)
+        x = self.layer3(x)
+        # x = checkpoint(self.custom(self.layer3), x)
         # x1 = self.layer5(x)
         # x1 = F.interpolate(x1, size=input_size, mode='bilinear', align_corners=True)
 
-        x = checkpoint(self.custom(self.layer4), x)
-        # x = self.layer4(x)
+        # x = checkpoint(self.custom(self.layer4), x)
+        x = self.layer4(x)
         feats = x
         x1 = self.layer6(x)
         x1 = F.interpolate(x1, size=input_size, mode='bilinear', align_corners=True)

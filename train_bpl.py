@@ -1,25 +1,16 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from dataset.gta_loader import SegmentationDataset
 from dataset.cityscapes_loader import CityscapesDataset
 from torch.optim.lr_scheduler import PolynomialLR
-from ignite.handlers.param_scheduler import LRScheduler
 from torchvision import transforms
 import os
-from utils.pseudo_label import generate_pseudo_labels
-from utils.set_path import set_arg_path, set_arg_round_path
 from utils.data_augmentation import RandomResizedCropWithMask, RandomHorizontalFlip, rotate_image
-import utils.label_selection as label_selection
 from utils.model_parameter_ema import update_model_params
 from model.deeplabv2 import DeeplabMulti, DeeplabMultiBayes
 from utils.arguments import get_args
 from tqdm import tqdm
-from utils.loss import iou, HLoss
-from model.reconstruction.masking import randomTile_zero
-from model.reconstruction.decoder import EffReconstructionDecoder
-from model.rotation.decoder import RotationClassifierDecoder
-import piq
+from utils.loss import iou, HLoss, kld_loss, calculate_pseudo_loss
 import numpy as np
 import torch, gc
 import wandb
@@ -37,33 +28,31 @@ cityscape_image_mean = (0.4422, 0.4379, 0.4246)
 cityscape_image_std = (0.2572, 0.2516, 0.2467)
 input_size = (720, 1280)
 
-def train_one_epoch(model, optimizer, data_loader, args=None):
+def train_one_epoch(stu_model, tut_model, optimizer, data_loader, args=None):
     total_loss = 0.0
 
     # Loss 선언
-    ce_loss = nn.CrossEntropyLoss(ignore_index=255)
     entropy_loss = HLoss(mode=args.cal_entropy)
 
-    model.train()
+    stu_model.train()
+    tut_model.eval()
     tot_iter = len(data_loader)
 
-    model.zero_grad()       
+    stu_model.zero_grad()       
     optimizer.zero_grad()                            
     for i, data in tqdm(enumerate(data_loader)):
         img, _, name = data
         img = img.to(device)
 
-        output, mu, logvar = model(img, return_features=True)
+        stu_output, mu, logvar = stu_model(img, return_features=True)
+        tut_output = tut_model(img)
 
         # calculate KL loss
-        # kl_loss = kld_loss(output, mu1=mu, logvar1=logvar, mu2=args.prior_mu, logvar2=args.prior_logvar)
+        kl_loss = kld_loss(mu1=mu, logvar1=logvar)
 
-        # calculate pseudo loss && teacher model inference 필요
-        # pseudo_loss = pseudo_loss(output, kl_loss["threshold"], temp)
+        pseudo_loss = calculate_pseudo_loss(tut_output, stu_output, kl_loss["threshold"], 2)
 
-        # loss = kl_loss["loss"] * args.kl_loss_lambda
-        # loss += pseudo_loss["loss"] * args.pseudo_loss_lambda
-        # loss += 
+        loss = 0.1 * kl_loss["loss"] + pseudo_loss["loss"]
 
         loss /= args.accumulation_steps     
         loss.backward()
