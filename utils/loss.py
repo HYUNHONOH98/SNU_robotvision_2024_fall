@@ -1,5 +1,6 @@
 import numpy as np
 from itertools import filterfalse as  ifilterfalse
+from .save_pseudo import save_pseudo_labels
 import torch
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -226,11 +227,21 @@ class SoftDiceLoss(nn.Module):
 
         return 1-dc
 
-
+import os
 def calculate_pseudo_loss(teacher_output,
                           student_output,
                           threshold,
-                          temp):
+                          save_info: dict,
+                          args
+                          ):
+    epoch, names = save_info["epoch"], save_info["name"]
+
+    save_dir = os.path.join("/home/hyunho/sfda/psuedo_label", args.exp_name)
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+    save_dir = os.path.join(save_dir, str(epoch))
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
 
     stu_prob_output = torch.softmax(student_output, dim=1)
     tut_prob_output = torch.softmax(teacher_output, dim=1)
@@ -242,6 +253,8 @@ def calculate_pseudo_loss(teacher_output,
 
     background_mask = (pseudo_labels != 255).long()
     pseudo_labels = pseudo_labels.long()
+
+    save_pseudo_labels(names, pseudo_labels, save_dir)
 
     # for unlabelled parts:
     if len(pseudo_labels.size()) == 3:

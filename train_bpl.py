@@ -28,11 +28,11 @@ cityscape_image_mean = (0.4422, 0.4379, 0.4246)
 cityscape_image_std = (0.2572, 0.2516, 0.2467)
 input_size = (720, 1280)
 
-def train_one_epoch(stu_model, tut_model, optimizer, data_loader, args=None):
+def train_one_epoch(stu_model, tut_model, optimizer, data_loader, args=None, epoch=0):
     total_loss = 0.0
 
     # Loss 선언
-    entropy_loss = HLoss(mode=args.cal_entropy)
+    # entropy_loss = HLoss(mode=args.cal_entropy)
 
     stu_model.train()
     tut_model.eval()
@@ -50,7 +50,8 @@ def train_one_epoch(stu_model, tut_model, optimizer, data_loader, args=None):
         # calculate KL loss
         kl_loss = kld_loss(mu1=mu, logvar1=logvar)
 
-        pseudo_loss = calculate_pseudo_loss(tut_output, stu_output, kl_loss["threshold"], 2)
+        pseudo_loss = calculate_pseudo_loss(tut_output, stu_output, kl_loss["threshold"], 
+                                            {"name" : name, "epoch" : epoch}, args)
 
         loss = 0.1 * kl_loss["loss"] + pseudo_loss["loss"]
 
@@ -153,7 +154,7 @@ def main():
         )
     scheduler = PolynomialLR(optimizer,
                             power=args.poly_power )
-    student_model.freeze_encoder_bn()
+    student_model.resnet.freeze_encoder_bn()
 
         
     train_dataset = CityscapesDataset(
@@ -174,7 +175,7 @@ def main():
     new_record = 0.0
     for epoch in range(args.num_epoch):
         print(f"Epoch {epoch}")
-        train_loss = train_one_epoch(student_model, optimizer, train_dataloader, args)
+        train_loss = train_one_epoch(student_model, teacher_model, optimizer, train_dataloader, args, epoch)
         valid_score = validate_one_epoch(student_model, valid_dataloader)
         scheduler.step()
 

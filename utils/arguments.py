@@ -1,6 +1,8 @@
 import argparse
 import os.path as osp
 
+EXP_NAME = "bpl_ver_1"
+
 BASE_DIR = "/home/hyunho/sfda"
 save =  "exp_data_debug"
 train_image_dir = "data/cityscapes_dataset/leftImg8bit/train"
@@ -8,7 +10,7 @@ train_mask_dir = "data/cityscapes_dataset/gtFine/train"
 valid_image_dir = "data/cityscapes_dataset/leftImg8bit/val"
 valid_mask_dir = "data/cityscapes_dataset/gtFine/val"
 pretrained_source_model_path = "exp/deeplabv2_1024/best_model_4_accuracy=0.8350.pt"
-model_dir = "exp/pseudo_train_debug"
+model_dir = osp.join("exp", EXP_NAME)
 num_classes = 19
 num_rounds = 3
 init_tgt_portion = 0.2
@@ -42,8 +44,10 @@ rotation_lambda = 0.01
 reconstruction_lambda = 0.01
 
 def join_base_path(args):
+    args.model_dir = osp.join(BASE_DIR, "exp", args.exp_name)
     args.save = osp.join(BASE_DIR, args.save)
     args.train_image_dir = osp.join(BASE_DIR, args.train_image_dir)
+    args.train_mask_dir = osp.join(BASE_DIR, args.train_mask_dir)
     args.valid_image_dir = osp.join(BASE_DIR, args.valid_image_dir)
     args.valid_mask_dir = osp.join(BASE_DIR, args.valid_mask_dir)
     args.target_image_dir = osp.join(BASE_DIR, args.target_image_dir)
@@ -52,6 +56,8 @@ def join_base_path(args):
 
 def get_args():
     parser = argparse.ArgumentParser(description="SFDA experiment args", conflict_handler='resolve')
+    parser.add_argument("--exp_name", type=str, default=EXP_NAME,
+                        help="실험의 대표 이름")
     parser.add_argument("--save", type=str, default=save,
                         help="pseudo label 데이터를 저장할 위치")
     parser.add_argument("--num_rounds", type=int, default= num_rounds, 
@@ -66,6 +72,8 @@ def get_args():
                         help= "한 라운드 당 에폭 수")
     parser.add_argument("--train_image_dir", type=str, default= train_image_dir, 
                         help= "train image 를 가져올 폴더 경로" )
+    parser.add_argument("--train_mask_dir", type=str, default= train_mask_dir,
+                        help= "train mask 를 가져올 폴더 경로")
     parser.add_argument("--valid_image_dir", type=str, default= valid_image_dir, 
                         help= "valid image 를 가져올 폴더 경로")
     parser.add_argument("--train_batch_size", type=str, default= train_batch_size, 
