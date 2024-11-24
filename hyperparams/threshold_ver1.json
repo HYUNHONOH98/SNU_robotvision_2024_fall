@@ -1,0 +1,5 @@
+[0.65, 0.51, 0.8, 0.5, 0.51, 0.66, 0.68, 0.73, 0.8, 0.69, 0.8, 0.73, 0.5, 0.8, 0.56, 0.5, 0.5, 0.5, 0.8]
+["road", "sidewalk", "building", "wall", "fence", "pole",
+                 "traffic light", "traffic sign", "vegetation", "terrain",
+                 "sky", "person", "rider", "car", "truck", "bus", "train",
+                 "motorcycle", "bicycle"]

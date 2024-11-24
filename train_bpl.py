@@ -50,8 +50,11 @@ def train_one_epoch(stu_model, tut_model, optimizer, data_loader, args=None, epo
         # calculate KL loss
         kl_loss = kld_loss(mu1=mu, logvar1=logvar)
 
-        pseudo_loss = calculate_pseudo_loss(tut_output, stu_output, kl_loss["threshold"], 
-                                            {"name" : name, "epoch" : epoch}, args)
+        pseudo_loss = calculate_pseudo_loss(tut_output, 
+                                            stu_output, 
+                                            kl_loss["threshold"], 
+                                            {"name" : name, "epoch" : epoch}, 
+                                            args)
 
         loss = 0.1 * kl_loss["loss"] + pseudo_loss["loss"]
 
@@ -64,7 +67,7 @@ def train_one_epoch(stu_model, tut_model, optimizer, data_loader, args=None, epo
 
         total_loss += loss.item()
         if (i+1) % 100 == 0:
-            print('iter = {} of {} completed, loss = {:.4f}'.format(i+1, tot_iter, loss.item()))
+            print('iter = {} of {} completed, kl loss = {:.4f}, pseudo loss = {:.4f}'.format(i+1, tot_iter, kl_loss['loss'].item(), pseudo_loss['loss'].item()))
 
     avg_loss = round(total_loss / tot_iter, 2)
     return avg_loss

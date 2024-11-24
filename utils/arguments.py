@@ -42,6 +42,7 @@ ds_rate = 10
 entropy_lambda = 0.005
 rotation_lambda = 0.01
 reconstruction_lambda = 0.01
+kl_lambda = 0.005
 
 def join_base_path(args):
     args.model_dir = osp.join(BASE_DIR, "exp", args.exp_name)
@@ -121,6 +122,8 @@ def get_args():
                         help= "Entropy Loss 계수")
     parser.add_argument("--rotation_lambda", type=float, default=rotation_lambda,
                         help= "Entropy Loss 계수")
+    parser.add_argument("--kl_lambda", type=float, default=kl_lambda,
+                        help= "KL loss 계수")
     parser.add_argument("--accumulation_steps", type=int, default=accumulation_steps,
                         help= "Gradient accumulation 정도")
     
