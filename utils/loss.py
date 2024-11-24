@@ -236,7 +236,7 @@ def calculate_pseudo_loss(teacher_output,
                           ):
     epoch, names = save_info["epoch"], save_info["name"]
 
-    save_dir = os.path.join("/home/hyunho/sfda/psuedo_label", args.exp_name)
+    save_dir = os.path.join("/home/hyunho/sfda/pseudo_label", args.exp_name)
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
     save_dir = os.path.join(save_dir, str(epoch))
