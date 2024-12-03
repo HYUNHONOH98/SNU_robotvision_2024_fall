@@ -7,7 +7,9 @@ from torchvision import transforms
 import os
 from utils.data_augmentation import RandomResizedCropWithMask, RandomHorizontalFlip, rotate_image
 from utils.model_parameter_ema import update_model_params
+from utils.save_pseudo import save_valid_label
 from model.deeplabv2 import DeeplabMulti, DeeplabMultiBayes
+from model.gan import discriminator_loss, generator_loss, Generator
 from utils.arguments import get_args
 from tqdm import tqdm
 from utils.loss import iou, HLoss, kld_loss, calculate_pseudo_loss
@@ -22,67 +24,107 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 args = get_args()
 
-
 """args"""
 cityscape_image_mean = (0.4422, 0.4379, 0.4246)
 cityscape_image_std = (0.2572, 0.2516, 0.2467)
 input_size = (720, 1280)
 
-def train_one_epoch(stu_model, tut_model, optimizer, data_loader, args=None, epoch=0):
+
+
+def train_one_epoch(stu_model, tut_model, generator, optimizer, g_optimizer, data_loader, args=None, epoch=0):
     total_loss = 0.0
 
     # Loss 선언
-    # entropy_loss = HLoss(mode=args.cal_entropy)
+    hl_loss = HLoss(mode=args.cal_entropy)
 
     stu_model.train()
     tut_model.eval()
     tot_iter = len(data_loader)
 
     stu_model.zero_grad()       
-    optimizer.zero_grad()                            
+    optimizer.zero_grad()
+    g_optimizer.zero_grad()                         
     for i, data in tqdm(enumerate(data_loader)):
-        img, _, name = data
-        img = img.to(device)
+        img, aug_img, _, name = data
 
-        stu_output, mu, logvar = stu_model(img, return_features=True)
-        tut_output = tut_model(img)
+        z = torch.randn(args.train_batch_size, generator.latent_dim).to(device)
+        img_Fake = generator(z)
+        img_Real = img.to(device)
+        aug_img = img.to(device)
+
+        stu_result_Real = stu_model(img_Real, return_features=True)
+        stu_result_Fake = stu_model(img_Fake, return_features=True)
+
+        tut_output = tut_model(aug_img)
+        
+        # Discriminator loss
+        D_loss = discriminator_loss(stu_result_Real["rf_pred"], stu_result_Fake["rf_pred"], args)
+
+        # HL loss
+        entropy_loss = hl_loss(stu_result_Real["output"])
 
         # calculate KL loss
-        kl_loss = kld_loss(mu1=mu, logvar1=logvar)
+        kl_loss = kld_loss(
+            mu1= stu_result_Real["mu"],
+            logvar1= stu_result_Real["logvar"],
+            args= args
+            )
 
         pseudo_loss = calculate_pseudo_loss(tut_output, 
-                                            stu_output, 
+                                            stu_result_Real["output"], 
                                             kl_loss["threshold"], 
                                             {"name" : name, "epoch" : epoch}, 
-                                            args)
+                                            args,
+                                            img)
 
-        loss = 0.1 * kl_loss["loss"] + pseudo_loss["loss"]
+        loss = args.kl_lambda * kl_loss["loss"] \
+                + pseudo_loss["loss"] \
+                + args.entropy_lambda * entropy_loss \
+                + D_loss
 
-        loss /= args.accumulation_steps     
-        loss.backward()
+        optimizer.zero_grad()
+        loss.backward(retain_graph=True)
+        optimizer.step()
 
-        if (i+1) % args.accumulation_steps == 0:             # Wait for several backward steps
-            optimizer.step()                            # Now we can do an optimizer step
-            optimizer.zero_grad()          
+        stu_model.zero_grad()
+        stu_result_Fake = stu_model(img_Fake, return_features=True)
+        G_loss = generator_loss(stu_result_Fake["rf_pred"], args)
 
-        total_loss += loss.item()
+        g_optimizer.zero_grad()
+        G_loss.backward()
+        g_optimizer.step()
+
+        total_loss += loss.item() + G_loss.item()
         if (i+1) % 100 == 0:
-            print('iter = {} of {} completed, kl loss = {:.4f}, pseudo loss = {:.4f}'.format(i+1, tot_iter, kl_loss['loss'].item(), pseudo_loss['loss'].item()))
+            print('iter = {} of {} completed, kl loss = {:.4f}, pseudo loss = {:.4f}, g loss = {:.4f}, d loss = {:.4f}'.format(i+1, 
+                                                                                                                               tot_iter, 
+                                                                                                                               kl_loss['loss'].item(), 
+                                                                                                                               pseudo_loss['loss'].item(),
+                                                                                                                               G_loss.item(),
+                                                                                                                               D_loss.item()))
 
     avg_loss = round(total_loss / tot_iter, 2)
     return avg_loss
 
-def validate_one_epoch(model, dataloader, args=None):
+def validate_one_epoch(model, dataloader, args, epoch):
     model.eval()
     total_score = np.zeros(19)
     tot_iter = len(dataloader)
     for i, data in tqdm(enumerate(dataloader)):
-        img, label, _ = data
-        output = model(img.to(device))
+        img, label, name = data
+        output = model(img.to(device))["output"]
 
         _, classes = output.softmax(1).max(1)
         classes = classes.detach().cpu()
-        # TODO : 중간 아웃풋 10개씩 뽑기. (visualize 10 images 함수로 따로 만들어도 괜찮을 듯)
+
+        save_dir = os.path.join("/home/hyunho/sfda/valid_label", args.exp_name)
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+        save_dir = os.path.join(save_dir, str(epoch))
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+        save_valid_label(name, classes, save_dir)
+
         score = iou(classes, label.long(), C=19, ignore=255)
         total_score += score
 
@@ -108,15 +150,21 @@ def main():
 
     ## model 초기화.
     teacher_model = DeeplabMulti(num_classes=19, pretrained=True).to(device)
-    teacher_model.load_state_dict(torch.load(args.pretrained_source_model_path, map_location=device, weights_only=True))
+    teacher_model.load_state_dict(torch.load(args.pretrained_source_model_path, map_location=device, weights_only=True), strict=False)
 
     student_model = DeeplabMultiBayes(num_classes=19, pretrained=True).to(device)
-    student_model.resnet.load_state_dict(torch.load(args.pretrained_source_model_path, map_location=device, weights_only=True))
+    student_model.resnet.load_state_dict(torch.load(args.pretrained_source_model_path, map_location=device, weights_only=True),strict=False)
+
+    generator = Generator(latent_dim=100).to(device)
     
     # transforms 정의
     train_image_transforms = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean=cityscape_image_mean, std=cityscape_image_std),
+        # transforms.RandomApply([transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1)]),
+        # transforms.RandomApply([transforms.GaussianBlur(kernel_size=5)])
+    ])
+    train_image_augmentation = transforms.Compose([
         transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1)]),
         transforms.RandomApply([transforms.GaussianBlur(kernel_size=5)])
     ])
@@ -155,7 +203,15 @@ def main():
             weight_decay=args.weight_decay,
             momentum=args.momentum
         )
+    g_optimizer = torch.optim.SGD(
+            student_model.parameters(), 
+            lr=args.initial_lr,
+            weight_decay=args.weight_decay,
+            momentum=args.momentum
+        )
     scheduler = PolynomialLR(optimizer,
+                            power=args.poly_power )
+    g_scheduler = PolynomialLR(g_optimizer,
                             power=args.poly_power )
     student_model.resnet.freeze_encoder_bn()
 
@@ -165,6 +221,7 @@ def main():
         masks_dir=args.train_mask_dir,
         image_transform=train_image_transforms,
         both_transform=train_both_transforms,
+        augmentation=train_image_augmentation,
         debug=args.debug,
     )
     train_dataloader = DataLoader(
@@ -175,12 +232,12 @@ def main():
         num_workers=16
     )
 
-    new_record = 0.0
     for epoch in range(args.num_epoch):
         print(f"Epoch {epoch}")
-        train_loss = train_one_epoch(student_model, teacher_model, optimizer, train_dataloader, args, epoch)
-        valid_score = validate_one_epoch(student_model, valid_dataloader)
+        train_loss = train_one_epoch(student_model, teacher_model, generator, optimizer, g_optimizer, train_dataloader, args, epoch)
+        valid_score = validate_one_epoch(student_model, valid_dataloader, args, epoch)
         scheduler.step()
+        g_scheduler.step()
 
         if not args.debug:
             wandb.log({"train_loss": train_loss, "valid_score": valid_score})
@@ -190,14 +247,11 @@ def main():
             update_model_params(teacher_model, student_model, args.alpha)
 
         print("모델 업데이트 끝.")
-        if valid_score > new_record:
-            torch.save(student_model.state_dict(), os.path.join(args.model_dir,f'student-{epoch}-IOU-{valid_score}.pth'))
-            torch.save(teacher_model.state_dict(), os.path.join(args.model_dir,f'teacher-{epoch}-IOU-{valid_score}.pth'))
-            new_record = valid_score
+        torch.save(student_model.state_dict(), os.path.join(args.model_dir,f'student-{epoch}-IOU-{valid_score}.pth'))
+        torch.save(teacher_model.state_dict(), os.path.join(args.model_dir,f'teacher-{epoch}-IOU-{valid_score}.pth'))
 
 if not args.debug:
     wandb.finish()
-        
         
       
 

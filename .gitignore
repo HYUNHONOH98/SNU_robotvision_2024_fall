@@ -10,3 +10,4 @@ wandb/
 exp_data/
 .idea/
 pseudo_label/
+valid_label/

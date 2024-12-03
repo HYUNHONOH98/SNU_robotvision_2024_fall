@@ -84,19 +84,36 @@ class ResNetMultiBayes(nn.Module):
         self.resnet = ResNetMulti(block, layers, num_classes)
         self.thresholdnet = ThresholdNet(2048 ,256) # input size, output size
         self.avgpool = nn.AdaptiveAvgPool2d((19, 1)) # class num?
+        self.rf_classifier = RFClassifierNet(2048)
 
     def forward(self, x, return_features= False):
         if return_features:
             output, feature = self.resnet(x, return_features=return_features)
+            
+            # Discriminator
+            rf_pred = self.rf_classifier(feature)
+            # BPL
             feature = self.avgpool(feature) # feature.shape is (2, 2048, 1, 1)
             # mu, logvar = self.thresholdnet(torch.flatten(feature, start_dim=1)) # ORIGINAL
             mu, logvar = self.thresholdnet(torch.squeeze(feature, dim=-1).permute(0,2,1)) # CHANGED (multi-channel, 19)
             
-            return output, mu, logvar
+            return {"output": output, "mu": mu, "logvar": logvar, "rf_pred" :rf_pred}
         else:
-            return self.resnet(x)
+            return {"output": self.resnet(x)}
 
-
+class RFClassifierNet(nn.Module):
+    def __init__(self, input_channels=2048):
+        super(RFClassifierNet, self).__init__()
+        self.classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1,1)),
+            nn.Flatten(),
+            nn.Linear(input_channels, 256),
+            nn.LeakyReLU(inplace=True),
+            nn.Linear(256,1)
+        )
+    
+    def forward(self, x):
+        return self.classifier(x)
 
 class ThresholdNet(nn.Module):
     def __init__(self, input_channels, output_channels):
@@ -122,6 +139,7 @@ class ResNetMulti(nn.Module):
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=1, dilation=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=1, dilation=4)
+        self.dropout = nn.Dropout2d(p=0.3)
         self.layer5 = self._make_pred_layer(Classifier_Module, 1024, [6, 12, 18, 24], [6, 12, 18, 24], num_classes)
         self.layer6 = self._make_pred_layer(Classifier_Module, 2048, [6, 12, 18, 24], [6, 12, 18, 24], num_classes)
 

@@ -12,13 +12,14 @@ def suffix_file_search(path, suffix):
 
 class CityscapesDataset(Dataset):
     # def __init__(self, images_dir, masks_dir, transform: A.Compose =None, debug=False):
-    def __init__(self, images_dir, masks_dir, image_transform=None, both_transform=None, debug=False, image_suffix="_leftImg8bit.png", mask_suffix="_labelTrainIds.png", rotate_function=None):
+    def __init__(self, images_dir, masks_dir, image_transform=None, both_transform=None, debug=False, image_suffix="_leftImg8bit.png", mask_suffix="_labelTrainIds.png", rotate_function=None, augmentation=None):
         self.images_dir = images_dir
         self.masks_dir = masks_dir
         self.image_transform = image_transform
         self.both_transform= both_transform
         self.debug = debug
         self.rotate_function = rotate_function
+        self.augmentation = augmentation
         self.cityscapes_palette = [[128, 64, 128], [244, 35, 232], [70, 70, 70], [102, 102, 156],
                  [190, 153, 153], [153, 153, 153], [250, 170,
                                                     30], [220, 220, 0],
@@ -66,9 +67,13 @@ class CityscapesDataset(Dataset):
             image = self.image_transform(image)
         if self.both_transform:
             image, mask = self.both_transform((image, mask))
+        if self.augmentation:
+            augmented_img = self.augmentation(image)
 
         if self.rotate_function:
             return image, mask.squeeze(0), name, rotated_img, rotate_label
+        elif self.augmentation:
+            return image, augmented_img, mask.squeeze(0), name
         else:
             return image, mask.squeeze(0), name
     

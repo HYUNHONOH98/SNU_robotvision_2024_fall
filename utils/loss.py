@@ -232,7 +232,8 @@ def calculate_pseudo_loss(teacher_output,
                           student_output,
                           threshold,
                           save_info: dict,
-                          args
+                          args,
+                          originals
                           ):
     epoch, names = save_info["epoch"], save_info["name"]
 
@@ -254,7 +255,7 @@ def calculate_pseudo_loss(teacher_output,
     background_mask = (pseudo_labels != 255).long()
     pseudo_labels = pseudo_labels.long()
 
-    save_pseudo_labels(names, pseudo_labels, save_dir)
+    save_pseudo_labels(names, originals, pseudo_labels, save_dir, threshold)
 
     # for unlabelled parts:
     if len(pseudo_labels.size()) == 3:
@@ -275,26 +276,24 @@ def calculate_pseudo_loss(teacher_output,
             'prob': stu_prob_output.mean()}
 
 
-import math
+import math, json
 
 def kld_loss(mu1,
              logvar1,
-             mu2=[0.65, 0.51, 0.8, 0.5, 0.51, 0.66, 0.68, 0.73, 0.8, 0.69, 0.8, 0.73, 0.5, 0.8, 0.56, 0.5, 0.5, 0.5, 0.8],
-             std2=0.125):
+             mu2=[],
+             std2=0.125, 
+             args=None):
     '''
     Args:
         mu1: mean of posterior
         logvar1: log variance of posterior
         mu2: mean of prior
         std2: standard deviation of prior
-        
-    Returns:
-        loss
-        predicted threshold for binary pseudo labelling
-
-    If any issues, please contact: xumoucheng28@gmail.com
 
     '''
+
+    with open(args.threshold_path, "r") as f:
+        mu2 = json.load(f)["values"]
 
     # learn the mean of posterior, separately
     mu1 = F.relu(mu1, inplace=True)

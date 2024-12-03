@@ -42,7 +42,10 @@ ds_rate = 10
 entropy_lambda = 0.005
 rotation_lambda = 0.01
 reconstruction_lambda = 0.01
-kl_lambda = 0.005
+kl_lambda = 0.0001
+
+# Threshold
+threshold_path = "hyperparams/threshold_ver2.json"
 
 def join_base_path(args):
     args.model_dir = osp.join(BASE_DIR, "exp", args.exp_name)
@@ -53,10 +56,13 @@ def join_base_path(args):
     args.valid_mask_dir = osp.join(BASE_DIR, args.valid_mask_dir)
     args.target_image_dir = osp.join(BASE_DIR, args.target_image_dir)
     args.target_mask_dir = osp.join(BASE_DIR, args.target_mask_dir)
+    args.threshold_path = osp.join(BASE_DIR, args.threshold_path)
     return args
 
 def get_args():
     parser = argparse.ArgumentParser(description="SFDA experiment args", conflict_handler='resolve')
+    parser.add_argument("--threshold_path", type=str, default=threshold_path,
+                        help="threshold prior 의 경로")
     parser.add_argument("--exp_name", type=str, default=EXP_NAME,
                         help="실험의 대표 이름")
     parser.add_argument("--save", type=str, default=save,
